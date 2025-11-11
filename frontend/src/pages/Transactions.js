@@ -46,8 +46,9 @@ export default function Transactions() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [filterCategory, setFilterCategory] = useState("All Categories");
+  const [filterCurrency, setFilterCurrency] = useState("All Currencies");
   const [selectedCurrency, setSelectedCurrency] = useState("₹ INR - Indian Rupee");
-  const [sortBy, setSortBy] = useState("date-desc"); // "date-desc", "date-asc", "alpha-asc", "alpha-desc"
+  const [sortBy, setSortBy] = useState("date-desc"); // "date-desc", "date-asc", "alpha-asc", "alpha-desc", "amount-asc", "amount-desc", "category-asc", "category-desc", "currency-asc", "currency-desc"
 
   // Load all transactions on mount
   useEffect(() => {
@@ -72,6 +73,11 @@ export default function Transactions() {
     // Filter by category
     if (filterCategory !== "All Categories") {
       filtered = filtered.filter((t) => t.category === filterCategory);
+    }
+
+    // Filter by currency
+    if (filterCurrency !== "All Currencies") {
+      filtered = filtered.filter((t) => (t.currency || "₹ INR - Indian Rupee") === filterCurrency);
     }
 
     // Search by description
@@ -111,10 +117,46 @@ export default function Transactions() {
         const descB = (b.description || "").toLowerCase();
         return descB.localeCompare(descA);
       });
+    } else if (sortBy === "amount-asc") {
+      sorted.sort((a, b) => {
+        const amountA = parseFloat(a.amount) || 0;
+        const amountB = parseFloat(b.amount) || 0;
+        return amountA - amountB;
+      });
+    } else if (sortBy === "amount-desc") {
+      sorted.sort((a, b) => {
+        const amountA = parseFloat(a.amount) || 0;
+        const amountB = parseFloat(b.amount) || 0;
+        return amountB - amountA;
+      });
+    } else if (sortBy === "category-asc") {
+      sorted.sort((a, b) => {
+        const catA = (a.category || "").toLowerCase();
+        const catB = (b.category || "").toLowerCase();
+        return catA.localeCompare(catB);
+      });
+    } else if (sortBy === "category-desc") {
+      sorted.sort((a, b) => {
+        const catA = (a.category || "").toLowerCase();
+        const catB = (b.category || "").toLowerCase();
+        return catB.localeCompare(catA);
+      });
+    } else if (sortBy === "currency-asc") {
+      sorted.sort((a, b) => {
+        const curA = (a.currency || "").toLowerCase();
+        const curB = (b.currency || "").toLowerCase();
+        return curA.localeCompare(curB);
+      });
+    } else if (sortBy === "currency-desc") {
+      sorted.sort((a, b) => {
+        const curA = (a.currency || "").toLowerCase();
+        const curB = (b.currency || "").toLowerCase();
+        return curB.localeCompare(curA);
+      });
     }
 
     setFilteredTransactions(sorted);
-  }, [globalTransactions, searchTerm, filterType, filterCategory, sortBy]);
+  }, [globalTransactions, searchTerm, filterType, filterCategory, filterCurrency, sortBy]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -342,7 +384,11 @@ export default function Transactions() {
           ))}
         </select>
 
-        <select className="filter-select">
+        <select 
+          className="filter-select"
+          value={filterCurrency}
+          onChange={(e) => setFilterCurrency(e.target.value)}
+        >
           <option>All Currencies</option>
           {DEFAULT_CURRENCIES.map((cur) => (
             <option key={cur}>{cur}</option>
@@ -357,8 +403,14 @@ export default function Transactions() {
         >
           <option value="date-desc">📅 Newest First</option>
           <option value="date-asc">📅 Oldest First</option>
-          <option value="alpha-asc">A-Z</option>
-          <option value="alpha-desc">Z-A</option>
+          <option value="alpha-asc">📝 A-Z (Description)</option>
+          <option value="alpha-desc">📝 Z-A (Description)</option>
+          <option value="amount-asc">💰 Amount: Low to High</option>
+          <option value="amount-desc">💰 Amount: High to Low</option>
+          <option value="category-asc">📂 Category: A-Z</option>
+          <option value="category-desc">📂 Category: Z-A</option>
+          <option value="currency-asc">💱 Currency: A-Z</option>
+          <option value="currency-desc">💱 Currency: Z-A</option>
         </select>
       </div>
 

@@ -217,81 +217,201 @@ export default function Profile(){
       <div className="card">
         <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 24 }}>Personal Information</h2>
         
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 24 }}>
-          <div className="form-row">
-            <label>Full Name</label>
-            <input
-              type="text"
-              value={profile.fullName}
-              onChange={e => handleChange('fullName', e.target.value)}
-              style={{ padding: '10px 16px' }}
-            />
-            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Contact support to change your name</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+          {/* Full Name */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              background: '#eef2ff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              color: '#6366f1',
+              flexShrink: 0
+            }}>
+              👤
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>Full Name</label>
+              <input
+                type="text"
+                value={profile.fullName}
+                onChange={e => handleChange('fullName', e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: '6px' }}
+              />
+              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Contact support to change your name</div>
+            </div>
           </div>
 
-          <div className="form-row">
-            <label>Email</label>
-            <input
-              type="email"
-              value={profile.email}
-              onChange={e => handleChange('email', e.target.value)}
-              style={{ padding: '10px 16px' }}
-              disabled
-            />
-            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Contact support to change your email</div>
+          {/* Email */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              background: '#fee2e2',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              color: '#dc2626',
+              flexShrink: 0
+            }}>
+              ✉️
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>Email</label>
+              <input
+                type="email"
+                value={profile.email}
+                onChange={e => handleChange('email', e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: '6px' }}
+                disabled
+              />
+              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Contact support to change your email</div>
+            </div>
           </div>
 
-          <div className="form-row">
-            <label>Occupation</label>
-            <input
-              type="text"
-              value={profile.occupation}
-              onChange={e => handleChange('occupation', e.target.value)}
-              style={{ padding: '10px 16px' }}
-            />
+          {/* Occupation */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              background: '#dbeafe',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              color: '#0284c7',
+              flexShrink: 0
+            }}>
+              💼
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>Occupation</label>
+              <input
+                type="text"
+                value={profile.occupation}
+                onChange={e => handleChange('occupation', e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: '6px' }}
+              />
+            </div>
           </div>
 
-          <div className="form-row">
-            <label>Phone Number</label>
-            <input
-              type="tel"
-              value={profile.phoneNumber}
-              onChange={e => handleChange('phoneNumber', e.target.value)}
-              style={{ padding: '10px 16px' }}
-            />
+          {/* Phone Number */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              background: '#dcfce7',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              color: '#16a34a',
+              flexShrink: 0
+            }}>
+              📱
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>Phone Number</label>
+              <input
+                type="tel"
+                value={profile.phoneNumber}
+                onChange={e => handleChange('phoneNumber', e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: '6px' }}
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="form-row" style={{ marginBottom: 24 }}>
-          <label>Address</label>
-          <input
-            type="text"
-            value={profile.address}
-            onChange={e => handleChange('address', e.target.value)}
-            style={{ padding: '10px 16px' }}
-          />
-        </div>
-
-        <div className="form-row" style={{ marginBottom: 24 }}>
-          <label>Date of Birth</label>
-          <input
-            type="date"
-            value={profile.dateOfBirth}
-            onChange={e => handleChange('dateOfBirth', e.target.value)}
-            style={{ padding: '10px 16px' }}
-          />
-          <div style={{ fontSize: 14, color: '#6366f1', marginTop: 4 }}>
-            You are {calculateAge(profile.dateOfBirth)} years old
+          {/* Address */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', gridColumn: '1 / -1' }}>
+            <div style={{
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              background: '#fef3c7',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              color: '#d97706',
+              flexShrink: 0
+            }}>
+              📍
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>Address</label>
+              <input
+                type="text"
+                value={profile.address}
+                onChange={e => handleChange('address', e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: '6px' }}
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="form-row" style={{ marginBottom: 24 }}>
-          <label>Bio</label>
-          <textarea
-            value={profile.bio}
-            onChange={e => handleChange('bio', e.target.value)}
-            style={{ padding: '10px 16px', minHeight: 100 }}
-          />
+          {/* Date of Birth */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              background: '#f3e8ff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              color: '#9333ea',
+              flexShrink: 0
+            }}>
+              📅
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>Date of Birth</label>
+              <input
+                type="date"
+                value={profile.dateOfBirth}
+                onChange={e => handleChange('dateOfBirth', e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: '6px' }}
+              />
+              <div style={{ fontSize: 14, color: '#6366f1', marginTop: 4 }}>
+                You are {calculateAge(profile.dateOfBirth)} years old
+              </div>
+            </div>
+          </div>
+
+          {/* Bio */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', gridColumn: '1 / -1' }}>
+            <div style={{
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              background: '#f5f3ff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              color: '#7c3aed',
+              flexShrink: 0,
+              marginTop: 0
+            }}>
+              ✍️
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>Bio</label>
+              <textarea
+                value={profile.bio}
+                onChange={e => handleChange('bio', e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: '6px', minHeight: 100 }}
+              />
+            </div>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: 12 }}>

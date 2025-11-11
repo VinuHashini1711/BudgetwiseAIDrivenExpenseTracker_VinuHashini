@@ -1,18 +1,30 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/Welcome.css';
 
 export default function Welcome() {
   const navigate = useNavigate();
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      sessionStorage.setItem('welcomed', 'true');
-      navigate('/login');
-    }, 10000);
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          handleNext();
+          return 100;
+        }
+        return prev + 10;
+      });
+    }, 1000);
 
-    return () => clearTimeout(timer);
-  }, [navigate]);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleNext = () => {
+    sessionStorage.setItem('welcomed', 'true');
+    navigate('/login');
+  };
 
   return (
     <div style={{
@@ -21,80 +33,121 @@ export default function Welcome() {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'linear-gradient(to bottom right, #f5f3ff, #ede9fe)',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       padding: 20,
       textAlign: 'center'
     }}>
       <div style={{
         width: 100,
         height: 100,
-        background: '#6366f1',
+        background: 'white',
         borderRadius: 20,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: 48,
-        color: 'white',
+        color: '#667eea',
         marginBottom: 24,
-        boxShadow: '0 10px 20px rgba(99, 102, 241, 0.2)'
+        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+        fontWeight: 700
       }}>
         B
       </div>
 
       <div style={{
-        fontSize: 32,
+        fontSize: 36,
         fontWeight: 700,
         marginBottom: 8,
-        color: '#1f2937',
+        color: 'white',
         display: 'flex',
         alignItems: 'center',
-        gap: 12
+        gap: 12,
+        justifyContent: 'center'
       }}>
         <span>👋</span>
         <span>Welcome to BudgetWise</span>
       </div>
       
       <div style={{
-        fontSize: 20,
-        color: '#6b7280',
-        marginBottom: 32
+        fontSize: 22,
+        color: '#e0e7ff',
+        marginBottom: 32,
+        fontWeight: 500
       }}>
         Your AI-Powered Expense Tracker
       </div>
 
       <div style={{
         fontSize: 16,
-        color: '#4b5563',
+        color: '#f3f4f6',
         maxWidth: 500,
-        lineHeight: 1.6
+        lineHeight: 1.8,
+        marginBottom: 40
       }}>
-        Manage your income, budgets, and spending with ease.
+        Manage your income, budgets, and spending with ease. Get AI-powered insights to help you make smarter financial decisions.
       </div>
 
       {/* Loading bar */}
       <div style={{
-        width: 200,
-        height: 4,
-        background: '#e5e7eb',
-        borderRadius: 2,
-        marginTop: 40,
+        width: 280,
+        height: 6,
+        background: 'rgba(255, 255, 255, 0.2)',
+        borderRadius: 3,
+        marginBottom: 24,
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        border: '1px solid rgba(255, 255, 255, 0.3)'
       }}>
         <div style={{
           position: 'absolute',
           top: 0,
           left: 0,
           height: '100%',
-          background: '#6366f1',
-          animation: 'loading 10s linear forwards'
+          background: 'white',
+          width: `${progress}%`,
+          transition: 'width 0.3s ease'
         }} />
       </div>
 
+      <div style={{
+        fontSize: 14,
+        color: '#e0e7ff',
+        marginBottom: 32
+      }}>
+        Loading in {Math.ceil((100 - progress) / 10)} seconds...
+      </div>
+
+      {/* Get Started Button */}
+      <button
+        onClick={handleNext}
+        style={{
+          background: 'white',
+          color: '#667eea',
+          border: 'none',
+          padding: '12px 32px',
+          fontSize: 16,
+          fontWeight: 600,
+          borderRadius: 8,
+          cursor: 'pointer',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)'
+        }}
+        onMouseOver={(e) => {
+          e.target.style.transform = 'translateY(-2px)';
+          e.target.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.3)';
+        }}
+        onMouseOut={(e) => {
+          e.target.style.transform = 'translateY(0)';
+          e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.2)';
+        }}
+      >
+        Get Started →
+      </button>
+
       <style>{`
-        @keyframes loading {
-          from { width: 0; }
-          to { width: 100%; }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

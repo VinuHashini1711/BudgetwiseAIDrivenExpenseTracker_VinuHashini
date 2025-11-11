@@ -5,6 +5,13 @@ import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import './index.css';
 
+// Clear welcomed flag on page refresh to always show Welcome page first
+if (performance.navigation.type === 1) {
+  // Page was refreshed
+  sessionStorage.removeItem('welcomed');
+  localStorage.removeItem('bw_lastPage');
+}
+
 const container = document.getElementById('root');
 const root = createRoot(container);
 

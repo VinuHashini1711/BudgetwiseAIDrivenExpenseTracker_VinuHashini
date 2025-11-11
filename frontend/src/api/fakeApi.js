@@ -100,6 +100,13 @@ export const fakeApi = {
     saveData(db);
     return db.budgets[idx];
   },
+  deleteBudget: async (id)=>{
+    await wait(200);
+    const db = getData();
+    db.budgets = db.budgets.filter(x=>x.id!==id);
+    saveData(db);
+    return { success:true };
+  },
   // profile
   getProfile: async (email)=>{
     await wait(200);
