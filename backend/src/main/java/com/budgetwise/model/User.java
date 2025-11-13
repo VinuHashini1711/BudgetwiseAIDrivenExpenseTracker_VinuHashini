@@ -45,12 +45,43 @@ public class User implements UserDetails {
     @Column(name = "profile_image", nullable = true)
     private String profileImage;
 
+    // ✅ Profile fields - all optional
+    @Column(name = "full_name", nullable = true)
+    private String fullName;
+
+    @Column(name = "occupation", nullable = true)
+    private String occupation;
+
+    @Column(name = "address", nullable = true)
+    private String address;
+
+    @Column(name = "phone_number", nullable = true)
+    private String phoneNumber;
+
+    @Column(name = "date_of_birth", nullable = true)
+    private String dateOfBirth;
+
+    @Column(name = "bio", columnDefinition = "TEXT", nullable = true)
+    private String bio;
+
     // ✅ Relationships
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<Transaction> transactions;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<Budget> budgets;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<Post> posts;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<Comment> comments;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<Like> likes;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<Goal> goals;
 
     // --- Spring Security implementation ---
     @Override

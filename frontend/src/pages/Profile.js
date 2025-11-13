@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { fakeApi } from '../api/fakeApi';
 import axios from '../api/axios';
 import '../styles/Profile.css';
 
@@ -13,26 +12,48 @@ export default function Profile(){
     address: '',
     phoneNumber: '',
     dateOfBirth: '',
-    bio: ''
+    bio: '',
+    profileImageUrl: ''
   });
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [showUploader, setShowUploader] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if(user) {
-      // Load saved profile from localStorage if it exists
-      const savedProfile = localStorage.getItem('user_profile');
-      if (savedProfile) {
-        setProfile(JSON.parse(savedProfile));
-      } else {
-        setProfile(prev => ({
-          ...prev,
-          email: user.email
-        }));
-      }
+      loadProfile();
     }
   }, [user]);
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+      console.log('Loading profile...');
+      const response = await axios.get('/api/profile');
+      console.log('Profile response:', response.data);
+      const data = response.data;
+      setProfile({
+        fullName: data.fullName || '',
+        email: data.email || user?.email || '',
+        occupation: data.occupation || '',
+        address: data.address || '',
+        phoneNumber: data.phoneNumber || '',
+        dateOfBirth: data.dateOfBirth || '',
+        bio: data.bio || '',
+        profileImageUrl: data.profileImageUrl || ''
+      });
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      // Use default values if API fails
+      setProfile(prev => ({
+        ...prev,
+        email: user?.email || prev.email
+      }));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getInitial = (name) => {
     return name.charAt(0).toUpperCase();
@@ -56,11 +77,48 @@ export default function Profile(){
     }));
   };
 
-  const handleSave = () => {
-    // Save to localStorage
-    localStorage.setItem('user_profile', JSON.stringify(profile));
-    // Show save confirmation
-    alert('Profile saved successfully!');
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      // Prepare data with only non-empty values
+      const updateData = {
+        fullName: profile.fullName.trim() || undefined,
+        occupation: profile.occupation.trim() || undefined,
+        address: profile.address.trim() || undefined,
+        phoneNumber: profile.phoneNumber.trim() || undefined,
+        dateOfBirth: profile.dateOfBirth || undefined,
+        bio: profile.bio.trim() || undefined
+      };
+      
+      console.log('Saving profile with data:', updateData);
+      
+      // Update profile via backend API
+      const response = await axios.put('/api/profile', updateData);
+      
+      console.log('Save response:', response.data);
+      
+      const updatedData = response.data;
+      // Update state with response data to ensure data persists
+      setProfile({
+        fullName: updatedData.fullName || '',
+        email: updatedData.email || user?.email || '',
+        occupation: updatedData.occupation || '',
+        address: updatedData.address || '',
+        phoneNumber: updatedData.phoneNumber || '',
+        dateOfBirth: updatedData.dateOfBirth || '',
+        bio: updatedData.bio || '',
+        profileImageUrl: updatedData.profileImageUrl || ''
+      });
+      
+      alert('Profile saved successfully!');
+      // Reload profile to confirm persistence
+      await loadProfile();
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert(error.response?.data?.message || 'Failed to save profile');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if(!profile) return <div>Loading...</div>;
@@ -130,23 +188,20 @@ export default function Profile(){
                     className="btn"
                     onClick={async () => {
                       if (!selectedFile) return alert('Select an image first');
-                      const token = localStorage.getItem('bw_token');
-                      if (!token) return alert('You must be logged in to upload a profile picture');
                       const fd = new FormData();
                       fd.append('file', selectedFile);
                       try {
-                        const res = await axios.post('/profile/avatar', fd, {
+                        setLoading(true);
+                        const res = await axios.post('/api/profile/avatar', fd, {
                           headers: {
-                            'Content-Type': 'multipart/form-data',
-                            Authorization: `Bearer ${token}`
+                            'Content-Type': 'multipart/form-data'
                           }
                         });
                         const data = res.data;
-                        // update local profile and persist
+                        // update local profile
                         const updated = { ...profile };
                         if (data.profileImageUrl) updated.profileImageUrl = data.profileImageUrl;
                         setProfile(updated);
-                        localStorage.setItem('user_profile', JSON.stringify(updated));
                         setShowUploader(false);
                         setSelectedFile(null);
                         setPreviewUrl(null);
@@ -156,6 +211,8 @@ export default function Profile(){
                         const status = err?.response?.status;
                         const msg = err?.response?.data?.message || err?.response?.data?.error || err.message || 'Upload failed';
                         alert(`Upload failed (status ${status}): ${msg}`);
+                      } finally {
+                        setLoading(false);
                       }
                     }}
                   >
@@ -419,13 +476,15 @@ export default function Profile(){
             onClick={handleSave}
             className="btn"
             style={{ padding: '12px 24px', fontSize: 15 }}
+            disabled={loading}
           >
-            Save Changes
+            {loading ? 'Saving...' : 'Save Changes'}
           </button>
           <button 
             onClick={logout}
             className="btn-secondary"
             style={{ padding: '12px 24px', fontSize: 15 }}
+            disabled={loading}
           >
             Logout
           </button>

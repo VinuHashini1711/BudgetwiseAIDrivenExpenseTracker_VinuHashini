@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from '../api/axios';
 import { useTheme } from '../context/ThemeContext';
 import '../styles/Settings.css';
 
@@ -11,6 +12,31 @@ export default function Settings(){
     monthlyIncome: '100000',
     riskTolerance: 'Moderate - Balanced approach to risk and return'
   });
+  const [loading, setLoading] = useState(false);
+
+  // Load settings on mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('/api/settings');
+      const data = response.data;
+      setSettings({
+        language: data.language || 'us English',
+        currency: data.currency || 'INR (₹) - Indian Rupee',
+        monthlyIncome: data.monthlyIncome || '100000',
+        riskTolerance: data.riskTolerance || 'Moderate - Balanced approach to risk and return'
+      });
+    } catch (error) {
+      console.error('Error loading settings:', error);
+      // Use default values on error
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (field, value) => {
     setSettings(prev => ({
@@ -19,10 +45,23 @@ export default function Settings(){
     }));
   };
 
-  const saveChanges = () => {
-    // Save to localStorage or API
-    localStorage.setItem('bw_settings', JSON.stringify(settings));
-    alert('Settings saved successfully!');
+  const saveChanges = async () => {
+    try {
+      setLoading(true);
+      // Save to backend API
+      await axios.put('/api/settings', {
+        language: settings.language,
+        currency: settings.currency,
+        monthlyIncome: settings.monthlyIncome,
+        riskTolerance: settings.riskTolerance
+      });
+      alert('Settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      alert(error.response?.data?.message || 'Failed to save settings');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const inputStyle = isDarkMode ? {
@@ -269,8 +308,9 @@ export default function Settings(){
         onClick={saveChanges}
         className="btn"
         style={{padding:'12px 24px', fontSize:15}}
+        disabled={loading}
       >
-        Save Changes
+        {loading ? 'Saving...' : 'Save Changes'}
       </button>
     </div>
   );

@@ -13,4 +13,10 @@ public class UpdateProfileRequest {
     private String username;
     private String currentPassword;
     private String newPassword;
+    private String fullName;
+    private String occupation;
+    private String address;
+    private String phoneNumber;
+    private String dateOfBirth;
+    private String bio;
 }

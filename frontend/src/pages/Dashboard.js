@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useContext } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { TransactionContext } from '../context/TransactionContext';
 import '../styles/Dashboard.css';
 
 export default function Dashboard(){
+  const { user } = useAuth();
   const { transactions, loading, loadTransactions } = useContext(TransactionContext);
   const [summary, setSummary] = useState({ income: 0, expenses: 0, net: 0 });
 
@@ -37,19 +39,24 @@ export default function Dashboard(){
 
   return (
     <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 className="page-title" style={{ marginBottom: 4 }}>Welcome, {user?.username || 'User'}! 👋</h1>
+        <p style={{ color: '#6b7280', fontSize: 14 }}>Here's your financial overview</p>
+      </div>
+      
       <div className="page-title">Dashboard</div>
       
       <div className="stats">
         <div className="card stat-card">
-          <div style={{fontSize:12, color:'#6b7280'}}>Total Income</div>
+          <div style={{fontSize:20, color:'#0f0a0ac1'}}>Total Income💰</div>
           <div style={{fontSize:22, fontWeight:700, color: '#10b981'}}>₹{summary.income.toFixed(2)}</div>
         </div>
         <div className="card stat-card">
-          <div style={{fontSize:12, color:'#6b7280'}}>Total Expenses</div>
+          <div style={{fontSize:20, color:'#07090cff'}}>Total Expenses💸</div>
           <div style={{fontSize:22, fontWeight:700, color: '#ef4444'}}>₹{summary.expenses.toFixed(2)}</div>
         </div>
         <div className="card stat-card">
-          <div style={{fontSize:12, color:'#6b7280'}}>Net</div>
+          <div style={{fontSize:20, color:'#06080bff'}}>Net💼</div>
           <div style={{fontSize:22, fontWeight:700, color: summary.net >= 0 ? '#10b981' : '#ef4444'}}>
             ₹{summary.net.toFixed(2)}
           </div>

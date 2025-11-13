@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { fakeApi } from '../api/fakeApi';
+import React, { useEffect, useState, useContext } from 'react';
 import axios from '../api/axios';
+import { TransactionContext } from '../context/TransactionContext';
 import '../styles/Budgets.css';
 
 export default function Budgets(){
+  const { transactions: globalTransactions } = useContext(TransactionContext);
   const [budgets, setBudgets] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [form, setForm] = useState({ category:'', amount:'' });
@@ -13,34 +14,51 @@ export default function Budgets(){
   
   useEffect(()=>{ load(); },[]);
   
+  // Auto-refresh budgets when global transactions change
+  useEffect(() => {
+    if (globalTransactions && globalTransactions.length > 0) {
+      load();
+    }
+  }, [globalTransactions]);
+  
   const load = async ()=>{ 
     try {
-      // Load budgets from fakeApi (localStorage)
-      const budgetsList = await fakeApi.listBudgets();
+      setLoading(true);
+      // Load budgets from backend API
+      const budgetsResponse = await axios.get('/api/budgets');
+      const budgetsList = budgetsResponse.data || [];
       
-      // Load transactions from backend API (real database)
+      // Load transactions from backend API
       let transactionsList = [];
       try {
         const response = await axios.get('/api/transactions');
         transactionsList = response.data || [];
       } catch (err) {
-        console.log('Using fakeApi for transactions fallback');
-        transactionsList = await fakeApi.listTransactions();
+        console.error('Error loading transactions:', err);
       }
       
-      // Calculate spent amount for each budget from transactions
+      // Calculate spent amount for each budget from ALL transactions
       const budgetsWithSpent = budgetsList.map(budget => {
+        // Sum ALL transactions matching this budget category
         const budgetSpent = transactionsList
-          .filter(t => 
+          .filter(t => {
             // Match transactions to budget by category (case-insensitive)
-            t.category && t.category.toLowerCase() === budget.name.toLowerCase() &&
-            (t.type === 'expense' || t.type === 'Expense')  // Only count expenses
-          )
-          .reduce((sum, t) => sum + (t.amount || 0), 0);
+            const matchesCategory = t.category && t.category.toLowerCase() === budget.category.toLowerCase();
+            // Only count expenses
+            const isExpense = (t.type === 'expense' || t.type === 'Expense');
+            return matchesCategory && isExpense;
+          })
+          .reduce((sum, t) => {
+            const amount = parseFloat(t.amount) || 0;
+            return sum + amount;
+          }, 0);
         
         return {
           ...budget,
-          spent: budgetSpent
+          spent: budgetSpent,
+          // Map backend field names to UI field names
+          name: budget.category,
+          limit: budget.amount
         };
       });
       
@@ -48,6 +66,9 @@ export default function Budgets(){
       setTransactions(transactionsList);
     } catch (error) {
       console.error('Error loading budgets and transactions:', error);
+      alert('Failed to load budgets');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -79,27 +100,25 @@ export default function Budgets(){
     try {
       if (editing) {
         // Update budget
-        await fakeApi.updateBudget(editing, {
-          name: form.category,
-          limit: Number(form.amount),
-          period: 'monthly',
-          startDate: new Date('2025-11-01'),
-          endDate: new Date('2025-11-30')
+        await axios.put(`/api/budgets/${editing}`, {
+          category: form.category,
+          amount: Number(form.amount)
         });
+        alert('Budget updated successfully');
       } else {
-        // Add new budget
-        await fakeApi.addBudget({ 
-          name: form.category, 
-          limit: Number(form.amount),
-          period: 'monthly',
-          startDate: new Date('2025-11-01'),
-          endDate: new Date('2025-11-30'),
-          spent: 0
+        // Create new budget
+        await axios.post('/api/budgets', {
+          category: form.category,
+          amount: Number(form.amount)
         });
+        alert('Budget created successfully');
       }
       setForm({category:'', amount:''}); 
       handleCloseModal();
       load();  // Reload to recalculate spent amounts from transactions
+    } catch (error) {
+      console.error('Error saving budget:', error);
+      alert(error.response?.data?.message || 'Failed to save budget');
     } finally {
       setLoading(false);
     }
@@ -107,8 +126,14 @@ export default function Budgets(){
 
   const remove = async (id) => {
     if (window.confirm('Are you sure you want to delete this budget?')) {
-      await fakeApi.deleteBudget(id);
-      load();
+      try {
+        await axios.delete(`/api/budgets/${id}`);
+        alert('Budget deleted successfully');
+        load();
+      } catch (error) {
+        console.error('Error deleting budget:', error);
+        alert(error.response?.data?.message || 'Failed to delete budget');
+      }
     }
   };
 

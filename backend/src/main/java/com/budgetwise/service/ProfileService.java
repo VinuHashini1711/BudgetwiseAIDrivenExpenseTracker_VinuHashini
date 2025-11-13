@@ -5,6 +5,7 @@ import com.budgetwise.dto.UserProfileDTO;
 import com.budgetwise.model.User;
 import com.budgetwise.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProfileService {
 
     private final UserRepository userRepository;
@@ -37,7 +39,7 @@ public class ProfileService {
     }
 
     /**
-     * Returns the user’s profile details.
+     * Returns the user's profile details.
      */
     public UserProfileDTO getUserProfile() {
         User user = getCurrentUser();
@@ -45,6 +47,12 @@ public class ProfileService {
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
+                .fullName(user.getFullName())
+                .occupation(user.getOccupation())
+                .address(user.getAddress())
+                .phoneNumber(user.getPhoneNumber())
+                .dateOfBirth(user.getDateOfBirth())
+                .bio(user.getBio())
                 .profileImageUrl(user.getProfileImage() != null
                         ? "/api/profile/avatar/" + user.getProfileImage()
                         : null)
@@ -56,6 +64,9 @@ public class ProfileService {
      */
     public UserProfileDTO updateProfile(UpdateProfileRequest request) {
         User user = getCurrentUser();
+        log.info("Updating profile for user: {}", user.getId());
+        log.info("Request data - fullName: {}, occupation: {}, address: {}", 
+                request.getFullName(), request.getOccupation(), request.getAddress());
 
         // Update username if provided
         if (request.getUsername() != null && !request.getUsername().isEmpty()) {
@@ -75,12 +86,45 @@ public class ProfileService {
             user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         }
 
+        // Update profile fields
+        if (request.getFullName() != null && !request.getFullName().isEmpty()) {
+            user.setFullName(request.getFullName());
+            log.info("Setting fullName: {}", request.getFullName());
+        }
+        if (request.getOccupation() != null && !request.getOccupation().isEmpty()) {
+            user.setOccupation(request.getOccupation());
+            log.info("Setting occupation: {}", request.getOccupation());
+        }
+        if (request.getAddress() != null && !request.getAddress().isEmpty()) {
+            user.setAddress(request.getAddress());
+            log.info("Setting address: {}", request.getAddress());
+        }
+        if (request.getPhoneNumber() != null && !request.getPhoneNumber().isEmpty()) {
+            user.setPhoneNumber(request.getPhoneNumber());
+            log.info("Setting phoneNumber: {}", request.getPhoneNumber());
+        }
+        if (request.getDateOfBirth() != null && !request.getDateOfBirth().isEmpty()) {
+            user.setDateOfBirth(request.getDateOfBirth());
+            log.info("Setting dateOfBirth: {}", request.getDateOfBirth());
+        }
+        if (request.getBio() != null && !request.getBio().isEmpty()) {
+            user.setBio(request.getBio());
+            log.info("Setting bio: {}", request.getBio());
+        }
+
         user = userRepository.save(user);
+        log.info("User profile saved. FullName after save: {}", user.getFullName());
 
         return UserProfileDTO.builder()
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
+                .fullName(user.getFullName())
+                .occupation(user.getOccupation())
+                .address(user.getAddress())
+                .phoneNumber(user.getPhoneNumber())
+                .dateOfBirth(user.getDateOfBirth())
+                .bio(user.getBio())
                 .profileImageUrl(user.getProfileImage() != null
                         ? "/api/profile/avatar/" + user.getProfileImage()
                         : null)
@@ -117,6 +161,12 @@ public class ProfileService {
                     .id(user.getId())
                     .username(user.getUsername())
                     .email(user.getEmail())
+                    .fullName(user.getFullName())
+                    .occupation(user.getOccupation())
+                    .address(user.getAddress())
+                    .phoneNumber(user.getPhoneNumber())
+                    .dateOfBirth(user.getDateOfBirth())
+                    .bio(user.getBio())
                     .profileImageUrl("/api/profile/avatar/" + filename)
                     .build();
 

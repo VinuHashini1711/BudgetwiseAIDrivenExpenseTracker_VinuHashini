@@ -50,6 +50,24 @@ export default function Transactions() {
   const [selectedCurrency, setSelectedCurrency] = useState("₹ INR - Indian Rupee");
   const [sortBy, setSortBy] = useState("date-desc"); // "date-desc", "date-asc", "alpha-asc", "alpha-desc", "amount-asc", "amount-desc", "category-asc", "category-desc", "currency-asc", "currency-desc"
 
+  // Initialize categories from localStorage
+  useEffect(() => {
+    const savedCategories = localStorage.getItem('bw_categories');
+    if (savedCategories) {
+      try {
+        const parsedCategories = JSON.parse(savedCategories);
+        setCategories(parsedCategories);
+      } catch (err) {
+        console.error('Error loading categories:', err);
+      }
+    }
+  }, []);
+
+  // Save categories to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('bw_categories', JSON.stringify(categories));
+  }, [categories]);
+
   // Load all transactions on mount
   useEffect(() => {
     globalLoadTransactions();
@@ -174,11 +192,33 @@ export default function Transactions() {
   };
 
   const handleOtherCategorySubmit = () => {
-    if (!newCategory.trim()) return;
-    setCategories((prev) => [...prev.filter((c) => c !== "Other"), newCategory, "Other"]);
-    setForm((f) => ({ ...f, category: newCategory }));
+    if (!newCategory.trim()) {
+      alert("Please enter a category name");
+      return;
+    }
+    
+    // Check if category already exists
+    if (categories.includes(newCategory.trim())) {
+      alert("This category already exists");
+      return;
+    }
+
+    // Add new category before "Other"
+    const updatedCategories = categories.filter((c) => c !== "Other");
+    updatedCategories.push(newCategory.trim());
+    updatedCategories.push("Other");
+    
+    // Update state (which also saves to localStorage via useEffect)
+    setCategories(updatedCategories);
+    
+    // Set form category to the new category
+    setForm((f) => ({ ...f, category: newCategory.trim() }));
+    
+    // Close input and reset
     setShowOtherCategoryInput(false);
     setNewCategory("");
+    
+    alert(`Category "${newCategory.trim()}" added successfully!`);
   };
 
   const handleSubmit = async (e) => {

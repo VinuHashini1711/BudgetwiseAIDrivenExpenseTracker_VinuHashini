@@ -57,6 +57,12 @@ export default function Sidebar(){
               AI Insights
             </span>
           </NavLink>
+          <NavLink to="/community" className={({isActive})=>isActive? 'active':''}>
+            <span style={{display:'flex', gap:8, alignItems:'center'}}>
+              <span style={{width:20, display:'inline-flex'}}>💬</span>
+              Community
+            </span>
+          </NavLink>
           <NavLink to="/profile" className={({isActive})=>isActive? 'active':''}>
             <span style={{display:'flex', gap:8, alignItems:'center'}}>
               <span style={{width:20, display:'inline-flex'}}>👤</span>
