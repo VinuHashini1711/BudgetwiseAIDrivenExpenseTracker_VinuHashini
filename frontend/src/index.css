@@ -41,7 +41,8 @@ body[style*="color: rgb(241, 245, 249)"] {
 }
 .app{
   display:flex; 
-  min-height:100vh;
+  height:100vh;
+  overflow: hidden;
 }
 
 .container{
@@ -49,6 +50,9 @@ body[style*="color: rgb(241, 245, 249)"] {
   padding:32px;
   margin-left: 260px;
   transition: margin-left 0.3s;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 .card{
   background:var(--card); 
@@ -66,7 +70,7 @@ body[style*="background: rgb(15, 23, 42)"] .card {
 /* Sidebar */
 .sidebar{
   width:260px; 
-  background: linear-gradient(180deg, #f8fafb 0%, #f1f5f9 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
   border-right:2px solid #e5e7eb; 
   padding:24px 16px; 
   display:flex; 
@@ -83,9 +87,9 @@ body[style*="background: rgb(15, 23, 42)"] .card {
 }
 
 body[style*="background: rgb(15, 23, 42)"] .sidebar {
-  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-  border-right-color: #334155;
-  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(180deg, #1a1f2e 0%, #0f172a 100%);
+  border-right-color: #0ea5e9;
+  box-shadow: 4px 0 16px rgba(14, 165, 233, 0.15);
 }
 
 .logo{

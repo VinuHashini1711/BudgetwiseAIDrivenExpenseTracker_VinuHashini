@@ -5,18 +5,32 @@ import '../styles/Welcome.css';
 export default function Welcome() {
   const navigate = useNavigate();
   const [progress, setProgress] = useState(0);
+  const [particles, setParticles] = useState([]);
+
+  useEffect(() => {
+    // Generate random particles for background animation
+    const newParticles = Array.from({ length: 15 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 3 + 1,
+      duration: Math.random() * 3 + 2,
+      delay: Math.random() * 1
+    }));
+    setParticles(newParticles);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress(prev => {
         if (prev >= 100) {
           clearInterval(interval);
-          handleNext();
+          setTimeout(() => handleNext(), 500);
           return 100;
         }
-        return prev + 10;
+        return prev + 8;
       });
-    }, 1000);
+    }, 800);
 
     return () => clearInterval(interval);
   }, []);
@@ -26,130 +40,121 @@ export default function Welcome() {
     navigate('/login');
   };
 
+  const features = [
+    { icon: '📊', title: 'Track Expenses', desc: 'Real-time tracking' },
+    { icon: '🎯', title: 'Set Goals', desc: 'Achieve targets' },
+    { icon: '📈', title: 'AI Insights', desc: 'Smart analysis' },
+    { icon: '💡', title: 'Smart Tips', desc: 'Save smarter' }
+  ];
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #ca2934ff 100%)',
-      padding: 20,
-      textAlign: 'center'
-    }}>
-      <div style={{
-        width: 100,
-        height: 100,
-        background: 'white',
-        borderRadius: 20,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: 48,
-        color: '#667eea',
-        marginBottom: 24,
-        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
-        fontWeight: 700
-      }}>
-        B
+    <div className="welcome-new-wrapper">
+      {/* Animated Background */}
+      <div className="welcome-animated-bg">
+        <div className="welcome-blob blob-1"></div>
+        <div className="welcome-blob blob-2"></div>
+        <div className="welcome-blob blob-3"></div>
+        
+        {/* Floating Particles */}
+        {particles.map(particle => (
+          <div
+            key={particle.id}
+            className="welcome-particle"
+            style={{
+              left: `${particle.x}%`,
+              top: `${particle.y}%`,
+              width: `${particle.size}px`,
+              height: `${particle.size}px`,
+              animationDuration: `${particle.duration}s`,
+              animationDelay: `${particle.delay}s`
+            }}
+          />
+        ))}
       </div>
 
-      <div style={{
-        fontSize: 36,
-        fontWeight: 700,
-        marginBottom: 8,
-        color: 'white',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        justifyContent: 'center'
-      }}>
-        <span>👋</span>
-        <span>Welcome to BudgetWise</span>
-      </div>
-      
-      <div style={{
-        fontSize: 22,
-        color: '#e0e7ff',
-        marginBottom: 32,
-        fontWeight: 500
-      }}>
-        Your AI-Powered Expense Tracker
-      </div>
+      {/* Main Container */}
+      <div className="welcome-new-container">
+        {/* Left Side - Content */}
+        <div className="welcome-content-section">
+          <div className="welcome-logo-container">
+            <div className="welcome-logo-badge">💰</div>
+            <div className="welcome-brand-icon">B</div>
+          </div>
 
-      <div style={{
-        fontSize: 16,
-        color: '#f3f4f6',
-        maxWidth: 500,
-        lineHeight: 1.8,
-        marginBottom: 40
-      }}>
-        Manage your income, budgets, and spending with ease. Get AI-powered insights to help you make smarter financial decisions.
+          <h1 className="welcome-main-title">
+            Welcome to <span className="welcome-highlight">BudgetWise</span>
+          </h1>
+
+          <p className="welcome-subtitle">
+            Your AI-Powered Expense Tracker
+          </p>
+
+          <p className="welcome-description">
+            Take control of your finances with intelligent tracking, smart insights, and personalized recommendations. Make every rupee count!
+          </p>
+
+          {/* Features Grid */}
+          <div className="welcome-features-grid">
+            {features.map((feature, idx) => (
+              <div key={idx} className="welcome-feature-card">
+                <div className="feature-icon">{feature.icon}</div>
+                <div className="feature-content">
+                  <h3>{feature.title}</h3>
+                  <p>{feature.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Loading Section */}
+          <div className="welcome-progress-section">
+            <div className="welcome-progress-bar">
+              <div className="progress-fill" style={{ width: `${progress}%` }} />
+              <div className="progress-glow" style={{ width: `${progress}%` }} />
+            </div>
+            <p className="loading-text">
+              {progress < 100 ? `Loading in ${Math.max(0, 13 - Math.ceil(progress / 10))} seconds...` : 'Ready to go!'}
+            </p>
+          </div>
+
+          {/* CTA Button */}
+          <button className="welcome-cta-btn" onClick={handleNext}>
+            <span className="btn-content">
+              Get Started
+              <span className="btn-arrow">→</span>
+            </span>
+            <span className="btn-shimmer"></span>
+          </button>
+        </div>
+
+        {/* Right Side - Illustration */}
+        <div className="welcome-visual-section">
+          <div className="welcome-card-showcase">
+            <div className="showcase-card card-income">
+              <div className="card-label">Income</div>
+              <div className="card-amount">₹45,000</div>
+              <div className="card-icon">📈</div>
+            </div>
+            <div className="showcase-card card-expense">
+              <div className="card-label">Expenses</div>
+              <div className="card-amount">₹12,500</div>
+              <div className="card-icon">💸</div>
+            </div>
+            <div className="showcase-card card-savings">
+              <div className="card-label">Savings</div>
+              <div className="card-amount">₹32,500</div>
+              <div className="card-icon">💎</div>
+            </div>
+          </div>
+
+          <div className="welcome-chart">
+            <div className="chart-bar" style={{ height: '60%' }}></div>
+            <div className="chart-bar" style={{ height: '35%' }}></div>
+            <div className="chart-bar" style={{ height: '80%' }}></div>
+            <div className="chart-bar" style={{ height: '45%' }}></div>
+          </div>
+        </div>
       </div>
-
-      {/* Loading bar */}
-      <div style={{
-        width: 280,
-        height: 6,
-        background: 'rgba(255, 255, 255, 0.2)',
-        borderRadius: 3,
-        marginBottom: 24,
-        position: 'relative',
-        overflow: 'hidden',
-        border: '1px solid rgba(255, 255, 255, 0.3)'
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          height: '100%',
-          background: 'white',
-          width: `${progress}%`,
-          transition: 'width 0.3s ease'
-        }} />
-      </div>
-
-      <div style={{
-        fontSize: 14,
-        color: '#e0e7ff',
-        marginBottom: 32
-      }}>
-        Loading in {Math.ceil((100 - progress) / 10)} seconds...
-      </div>
-
-      {/* Get Started Button */}
-      <button
-        onClick={handleNext}
-        style={{
-          background: 'white',
-          color: '#667eea',
-          border: 'none',
-          padding: '12px 32px',
-          fontSize: 16,
-          fontWeight: 600,
-          borderRadius: 8,
-          cursor: 'pointer',
-          transition: 'transform 0.2s, box-shadow 0.2s',
-          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)'
-        }}
-        onMouseOver={(e) => {
-          e.target.style.transform = 'translateY(-2px)';
-          e.target.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.3)';
-        }}
-        onMouseOut={(e) => {
-          e.target.style.transform = 'translateY(0)';
-          e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.2)';
-        }}
-      >
-        Get Started →
-      </button>
-
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }

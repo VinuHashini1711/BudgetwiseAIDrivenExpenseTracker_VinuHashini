@@ -215,7 +215,7 @@ export default function Community() {
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{ marginBottom: '32px' }}>
-          <h1 style={{ color: textColor, fontSize: '32px', marginBottom: '8px' }}>Community Forum</h1>
+          <h1 style={{ color: textColor, fontSize: '32px', marginBottom: '8px' }}>Community Forum!💬</h1>
           <p style={{ color: subtleText, marginBottom: '20px' }}>Share tips and learn from others</p>
           <button
             onClick={() => setShowNewPostModal(true)}

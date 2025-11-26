@@ -8,13 +8,16 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     const res = await login(identifier, password);
+    setLoading(false);
     if (res.error) {
       setError(res.error);
       return;
@@ -23,128 +26,118 @@ export default function Login() {
   };
 
   return (
-    <div className="auth-wrapper">
-      <div className="card auth-card">
-        <h2
-          style={{
-            textAlign: 'center',
-            marginBottom: 24,
-            color: '#2563eb',
-            fontSize: 22,
-            fontWeight: 'bold',
-          }}
-        >
-          Login
-        </h2>
+    <div className="login-modern-wrapper">
+      {/* Animated Background */}
+      <div className="login-animated-bg">
+        <div className="login-blob blob-1"></div>
+        <div className="login-blob blob-2"></div>
+        <div className="login-blob blob-3"></div>
+      </div>
 
-        {error && (
-          <div
-            style={{
-              color: '#dc2626',
-              marginBottom: 12,
-              background: '#fef2f2',
-              padding: '8px 12px',
-              borderRadius: 6,
-              fontSize: 14,
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          {/* Username or Email */}
-          <div className="form-row" style={{ marginBottom: 14 }}>
-            <label>Username or Email</label>
-            <input
-              type="text"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              required
-              style={{
-                padding: '10px 16px',
-                width: '100%',
-                borderRadius: 6,
-                border: '1px solid #d1d5db',
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          {/* Password Field */}
-          <div className="form-row" style={{ marginBottom: 18 }}>
-            <label>Password</label>
-            <div style={{ position: 'relative' }}>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                style={{
-                  padding: '10px 40px 10px 16px',
-                  width: '100%',
-                  borderRadius: 6,
-                  border: '1px solid #d1d5db',
-                  outline: 'none',
-                }}
-              />
-              {/* Blue Eye Icon */}
-              <span
-                onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  cursor: 'pointer',
-                  fontSize: 18,
-                  color: '#2563eb', // Blue eye color
-                  userSelect: 'none',
-                  transition: 'color 0.2s ease',
-                }}
-                title={showPassword ? 'Hide password' : 'Show password'}
-              >
-                &#128065;
-              </span>
+      {/* Main Container */}
+      <div className="login-modern-container">
+        {/* Login Form - Centered */}
+        <div className="login-center-panel">
+          <div className="login-form-wrapper">
+            <div className="login-form-header">
+              <h2>Welcome Back</h2>
+              <p>Sign in to your account to continue</p>
             </div>
-          </div>
 
-          {/* Buttons */}
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button
-              type="submit"
-              style={{
-                flex: 1,
-                backgroundColor: '#2563eb',
-                color: 'white',
-                border: 'none',
-                borderRadius: 6,
-                padding: '10px',
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-            >
-              Login
-            </button>
+            {error && (
+              <div className="login-error-banner">
+                <span className="login-error-icon">⚠️</span>
+                <div>
+                  <strong>Login Error</strong>
+                  <p>{error}</p>
+                </div>
+              </div>
+            )}
 
-            <Link
-              to="/register"
-              style={{
-                flex: 1,
-                textAlign: 'center',
-                border: '1px solid #2563eb',
-                borderRadius: 6,
-                padding: '10px',
-                color: '#2563eb',
-                textDecoration: 'none',
-                fontWeight: 600,
-              }}
-            >
-              Register
-            </Link>
+            <form onSubmit={handleSubmit} className="login-form-modern">
+              {/* Username or Email */}
+              <div className="login-input-group">
+                <label htmlFor="identifier" className="login-label">
+                  <span className="login-label-icon">👤</span>
+                  Username or Email
+                </label>
+                <input
+                  id="identifier"
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="Enter your username or email"
+                  required
+                  className="login-input-field"
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Password */}
+              <div className="login-input-group">
+                <label htmlFor="password" className="login-label">
+                  <span className="login-label-icon">🔐</span>
+                  Password
+                </label>
+                <div className="login-password-wrapper">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    required
+                    className="login-input-field"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    className="login-toggle-password"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={loading}
+                  >
+                    {showPassword ? '👁️' : '👁️‍🗨️'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Remember & Forgot */}
+              <div className="login-form-options">
+                <label className="login-remember-me">
+                  <input type="checkbox" />
+                  <span>Remember me</span>
+                </label>
+                <a href="#" className="login-forgot-password">Forgot password?</a>
+              </div>
+
+              {/* Login Button */}
+              <button
+                type="submit"
+                className={`login-submit-btn ${loading ? 'loading' : ''}`}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="login-spinner"></span>
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    Sign In
+                    <span className="login-btn-arrow">→</span>
+                  </>
+                )}
+              </button>
+
+              {/* Register Link */}
+              <div className="login-register-prompt">
+                <p>Don't have an account? <Link to="/register" className="login-register-link">Create one</Link></p>
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
 }
+

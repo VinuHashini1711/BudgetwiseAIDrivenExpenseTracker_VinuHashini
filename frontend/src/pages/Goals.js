@@ -200,7 +200,7 @@ export default function Goals() {
   };
 
   const textColor = isDarkMode ? '#f1f5f9' : '#111827';
-  const mutedColor = isDarkMode ? '#94a3b8' : '#6b7280';
+  const mutedColor = isDarkMode ? '#d3d7dcff' : '#0e0e0fff';
   const inputBg = isDarkMode ? '#0f172a' : '#ffffff';
   const inputBorder = isDarkMode ? '#334155' : '#e5e7eb';
 
@@ -209,7 +209,7 @@ export default function Goals() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <h1 className="page-title" style={{ marginBottom: 4, color: textColor }}>Savings Goals</h1>
+          <h1 className="page-title" style={{ marginBottom: 4, color: textColor }}>Savings Goals🎯</h1>
           <div style={{ color: mutedColor }}>Track your progress towards financial goals</div>
         </div>
         <button 
@@ -223,7 +223,7 @@ export default function Goals() {
 
       {/* Goals List or Empty State */}
       {goals.length === 0 ? (
-        <div className="card" style={{ ...cardStyle, textAlign: 'center', padding: '48px 24px' }}>
+        <div className="card" style={{ ...cardStyle, textAlign: 'center', padding: '48px 24px', maxWidth: 900, margin: '0 auto' }}>
           <div style={{
             width: 80,
             height: 80,
@@ -249,7 +249,8 @@ export default function Goals() {
           </p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, maxWidth: 900, margin: '0 auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, borderLeft: '4px solid', borderImage: 'linear-gradient(180deg, #8b5cf6, #ec4899) 1', paddingLeft: 24, background: isDarkMode ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(236, 72, 153, 0.08) 100%)' : 'linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(236, 72, 153, 0.05) 100%)', borderRadius: 12, padding: '20px', paddingLeft: 24 }}>
           {goals.map(goal => {
             const progress = calculateProgress(goal);
             const daysRemaining = calculateDaysRemaining(goal.deadline);
@@ -258,7 +259,9 @@ export default function Goals() {
             const priorityColor = getPriorityColor(goal.priority);
 
             return (
-              <div key={goal.id} style={cardStyle}>
+              <div key={goal.id} style={{...cardStyle, cursor: 'pointer', transition: 'all 0.3s ease', transform: 'translateY(0)', boxShadow: isDarkMode ? '0 2px 6px rgba(0, 0, 0, 0.3)' : '0 2px 6px rgba(15, 23, 42, 0.06)'}} 
+                   onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = isDarkMode ? '0 12px 24px rgba(139, 92, 246, 0.2)' : '0 12px 24px rgba(139, 92, 246, 0.15)'; }} 
+                   onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = isDarkMode ? '0 2px 6px rgba(0, 0, 0, 0.3)' : '0 2px 6px rgba(15, 23, 42, 0.06)'; }}>
                 {/* Goal Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 16 }}>
                   <div>
@@ -417,6 +420,7 @@ export default function Goals() {
               </div>
             );
           })}
+          </div>
         </div>
       )}
 

@@ -49,6 +49,9 @@ export default function Transactions() {
   const [filterCurrency, setFilterCurrency] = useState("All Currencies");
   const [selectedCurrency, setSelectedCurrency] = useState("₹ INR - Indian Rupee");
   const [sortBy, setSortBy] = useState("date-desc"); // "date-desc", "date-asc", "alpha-asc", "alpha-desc", "amount-asc", "amount-desc", "category-asc", "category-desc", "currency-asc", "currency-desc"
+  const [dateRangeFilter, setDateRangeFilter] = useState(false);
+  const [dateRangeStart, setDateRangeStart] = useState("");
+  const [dateRangeEnd, setDateRangeEnd] = useState("");
 
   // Initialize categories from localStorage
   useEffect(() => {
@@ -106,6 +109,19 @@ export default function Transactions() {
           (t.description && t.description.toLowerCase().includes(term)) ||
           (t.category && t.category.toLowerCase().includes(term))
       );
+    }
+
+    // Filter by date range
+    if (dateRangeFilter && dateRangeStart && dateRangeEnd) {
+      const startDate = new Date(dateRangeStart);
+      const endDate = new Date(dateRangeEnd);
+      // Set end date to end of day (23:59:59)
+      endDate.setHours(23, 59, 59, 999);
+      
+      filtered = filtered.filter((t) => {
+        const txnDate = new Date(t.date);
+        return txnDate >= startDate && txnDate <= endDate;
+      });
     }
 
     // Apply sorting - Create a copy to avoid mutating
@@ -174,7 +190,7 @@ export default function Transactions() {
     }
 
     setFilteredTransactions(sorted);
-  }, [globalTransactions, searchTerm, filterType, filterCategory, filterCurrency, sortBy]);
+  }, [globalTransactions, searchTerm, filterType, filterCategory, filterCurrency, sortBy, dateRangeFilter, dateRangeStart, dateRangeEnd]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -370,7 +386,7 @@ export default function Transactions() {
       {/* Header with Export & Currency */}
       <div className="transactions-header">
         <div>
-          <h1>Transactions</h1>
+          <h1>Transactions!💳</h1>
           <p>Track all your income and expenses</p>
         </div>
         <div className="header-controls">
@@ -452,7 +468,51 @@ export default function Transactions() {
           <option value="currency-asc">💱 Currency: A-Z</option>
           <option value="currency-desc">💱 Currency: Z-A</option>
         </select>
+
+        <button
+          className={`filter-btn ${dateRangeFilter ? "active" : ""}`}
+          onClick={() => setDateRangeFilter(!dateRangeFilter)}
+          title="Toggle date range filter"
+        >
+          📅 Date Range
+        </button>
       </div>
+
+      {/* Date Range Filter Inputs */}
+      {dateRangeFilter && (
+        <div className="date-range-filter">
+          <div className="date-range-inputs">
+            <div className="date-input-group">
+              <label>From Date</label>
+              <input
+                type="date"
+                value={dateRangeStart}
+                onChange={(e) => setDateRangeStart(e.target.value)}
+                className="date-input"
+              />
+            </div>
+            <div className="date-input-group">
+              <label>To Date</label>
+              <input
+                type="date"
+                value={dateRangeEnd}
+                onChange={(e) => setDateRangeEnd(e.target.value)}
+                className="date-input"
+              />
+            </div>
+            <button
+              className="btn secondary"
+              onClick={() => {
+                setDateRangeStart("");
+                setDateRangeEnd("");
+              }}
+              title="Clear date range"
+            >
+              Clear Dates
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Transaction List */}
       <div className="transactions-list">
@@ -470,7 +530,7 @@ export default function Transactions() {
             >
               <div className="transaction-card-left">
                 <div className="txn-icon">
-                  {(t.type || "").toLowerCase() === "income" ? "⊕" : "⊖"}
+                  {(t.type || "").toLowerCase() === "income" ? "↑" : "↓"}
                 </div>
                 <div className="txn-info">
                   <div className="txn-description">{t.description}</div>

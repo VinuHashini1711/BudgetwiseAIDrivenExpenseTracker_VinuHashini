@@ -22,16 +22,11 @@ function AppContent() {
   const location = useLocation();
 
   // Pages where Sidebar should be hidden
-  const noSidebarRoutes = ['/login', '/register', '/welcome'];
+  const noSidebarRoutes = ['/login', '/register', '/welcome', '/'];
 
-  // Force Welcome page before any other page if not logged in and not already shown
-  // User must see welcome page first on every app load/logout
-  const isAuthenticated = !!user;
-  const isWelcomePath = location.pathname === '/';
-  const isAuthPath = ['/login', '/register', '/welcome'].includes(location.pathname);
-  
-  // If user is not authenticated AND not on auth paths AND not on welcome, redirect to root (which shows welcome)
-  if (!isAuthenticated && !isAuthPath && location.pathname !== '/') {
+  // Force redirect to Welcome/Home page unless user is authenticated
+  // If not authenticated, ALWAYS redirect to home (/) first
+  if (!user && location.pathname !== '/' && location.pathname !== '/login' && location.pathname !== '/register') {
     return (
       <div className="app">
         <div className="container">
@@ -50,10 +45,7 @@ function AppContent() {
 
       <div className="container">
         <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-
+          {/* Root path - Shows Welcome if not authenticated, Dashboard if authenticated */}
           <Route
             path="/"
             element={
@@ -62,6 +54,10 @@ function AppContent() {
                 : <Welcome />
             }
           />
+
+          {/* Public Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -73,8 +69,8 @@ function AppContent() {
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
-          {/* Fallback */}
-          <Route path="*" element={<div>Page not found</div>} />
+          {/* Fallback - Redirect any unknown routes to home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
     </div>

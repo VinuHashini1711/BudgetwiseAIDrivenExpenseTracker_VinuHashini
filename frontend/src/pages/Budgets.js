@@ -149,8 +149,22 @@ export default function Budgets(){
       {/* Header */}
       <div className="budgets-header-section">
         <div>
-          <h1 className="page-title">Budgets</h1>
+          <h1 className="page-title">Budgets!💰</h1>
           <p className="page-subtitle">Set spending limits and track your budget</p>
+          <div className="budget-color-legend">
+            <div className="legend-item">
+              <div className="legend-color" style={{background: 'linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%)'}}></div>
+              <span>0-75%</span>
+            </div>
+            <div className="legend-item">
+              <div className="legend-color" style={{background: 'linear-gradient(90deg, #f97316 0%, #ea580c 100%)'}}></div>
+              <span>75-90%</span>
+            </div>
+            <div className="legend-item">
+              <div className="legend-color" style={{background: 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)'}}></div>
+              <span>90%+</span>
+            </div>
+          </div>
         </div>
         <div style={{display: 'flex', gap: '12px'}}>
           <button 
