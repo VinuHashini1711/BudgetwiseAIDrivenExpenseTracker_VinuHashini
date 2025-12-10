@@ -8,10 +8,12 @@ import Budgets from './pages/Budgets';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import AIInsights from './pages/AIInsights';
+import Analytics from './pages/Analytics';
 import Goals from './pages/Goals';
 import Community from './pages/Community';
 import Welcome from './pages/Welcome';
 import Sidebar from './components/Sidebar';
+import Export from './pages/Export';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -63,11 +65,14 @@ function AppContent() {
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
           <Route path="/budgets" element={<ProtectedRoute><Budgets /></ProtectedRoute>} />
+          <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
           <Route path="/goals" element={<ProtectedRoute><Goals /></ProtectedRoute>} />
           <Route path="/ai-insights" element={<ProtectedRoute><AIInsights /></ProtectedRoute>} />
           <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
+
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/export" element={<ProtectedRoute><Export /></ProtectedRoute>} />
 
           {/* Fallback - Redirect any unknown routes to home */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,16 +1,28 @@
 /* Community Page Styles */
 
 .community-container {
-  padding: 24px;
+  padding: var(--page-padding);
   min-height: 100vh;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
 }
 
+@media (max-width: 768px) {
+  .community-container {
+    padding: var(--page-padding-tablet);
+  }
+}
+
+@media (max-width: 480px) {
+  .community-container {
+    padding: var(--page-padding-mobile);
+  }
+}
+
 .community-header {
-  margin-bottom: 32px;
-  padding: 28px;
+  margin-bottom: var(--spacing-4xl);
+  padding: var(--spacing-3xl);
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border-left: 4px solid transparent;
   border-image: linear-gradient(180deg, #2563eb, #a855f7) 1;
 }
@@ -18,7 +30,7 @@
 .community-header h1 {
   font-size: 32px;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: var(--spacing-sm);
   background: linear-gradient(135deg, #2563eb 0%, #a855f7 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -27,7 +39,7 @@
 
 .community-header p {
   font-size: 14px;
-  margin-bottom: 20px;
+  margin-bottom: var(--spacing-xl);
   color: #94a3b8;
 }
 

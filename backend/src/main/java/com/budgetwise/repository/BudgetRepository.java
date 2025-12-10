@@ -12,4 +12,5 @@ public interface BudgetRepository extends JpaRepository<Budget, Long> {
     List<Budget> findByUserAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
             User user, LocalDate currentDate, LocalDate currentDate2);
     List<Budget> findByUserAndCategory(User user, String category);
+    void deleteByUser(User user);
 }

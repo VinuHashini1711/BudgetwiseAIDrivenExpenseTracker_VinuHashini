@@ -3,11 +3,23 @@
    ====================================== */
 
 .budgets-page {
-  padding: 32px;
+  padding: var(--page-padding);
   background: transparent;
   min-height: 100vh;
   max-width: 1400px;
   margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .budgets-page {
+    padding: var(--page-padding-tablet);
+  }
+}
+
+@media (max-width: 480px) {
+  .budgets-page {
+    padding: var(--page-padding-mobile);
+  }
 }
 
 /* Header Section - Dark Mode */
@@ -15,8 +27,8 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 32px;
-  padding-bottom: 20px;
+  margin-bottom: var(--spacing-4xl);
+  padding-bottom: var(--spacing-xl);
   border-bottom: 2px solid #334155;
 }
 
@@ -24,13 +36,13 @@
   font-size: 28px;
   font-weight: 700;
   color: #e0f2fe;
-  margin: 0 0 8px 0;
+  margin: 0 0 var(--spacing-sm) 0;
 }
 
 .page-subtitle {
   color: #94a3b8;
   font-size: 14px;
-  margin: 0 0 12px 0;
+  margin: 0 0 var(--spacing-md) 0;
 }
 
 /* Budget Color Legend - Dark Mode */

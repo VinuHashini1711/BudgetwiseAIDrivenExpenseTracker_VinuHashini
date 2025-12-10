@@ -90,10 +90,46 @@ public class ProfileController {
         }
     }
 
+    /**
+     * Delete user account permanently
+     */
+    @DeleteMapping("/account")
+    public ResponseEntity<?> deleteAccount() {
+        try {
+            profileService.deleteAccount();
+            return ResponseEntity.ok(new SuccessResponse("Account deleted successfully. Goodbye!"));
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(createErrorResponse(400, ex.getMessage()));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResponse(500, "Internal server error"));
+        }
+    }
+
+    /**
+     * Reset all user data (transactions, budgets, goals)
+     */
+    @PostMapping("/reset-data")
+    public ResponseEntity<?> resetAccountData() {
+        try {
+            profileService.resetAccountData();
+            return ResponseEntity.ok(new SuccessResponse("Account data reset successfully"));
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(createErrorResponse(400, ex.getMessage()));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResponse(500, "Internal server error"));
+        }
+    }
+
     // Helper for uniform error responses
     private ErrorResponse createErrorResponse(int status, String message) {
         return new ErrorResponse(status, message);
     }
 
     private record ErrorResponse(int status, String message) {}
+    
+    private record SuccessResponse(String message) {}
 }

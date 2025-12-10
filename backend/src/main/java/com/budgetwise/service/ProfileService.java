@@ -4,6 +4,9 @@ import com.budgetwise.dto.UpdateProfileRequest;
 import com.budgetwise.dto.UserProfileDTO;
 import com.budgetwise.model.User;
 import com.budgetwise.repository.UserRepository;
+import com.budgetwise.repository.TransactionRepository;
+import com.budgetwise.repository.BudgetRepository;
+import com.budgetwise.repository.GoalRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -25,6 +28,9 @@ public class ProfileService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TransactionRepository transactionRepository;
+    private final BudgetRepository budgetRepository;
+    private final GoalRepository goalRepository;
 
     /**
      * Retrieves the currently authenticated user based on the identifier
@@ -172,6 +178,60 @@ public class ProfileService {
 
         } catch (IOException ex) {
             throw new RuntimeException("Failed to store file", ex);
+        }
+    }
+
+    /**
+     * Deletes the user account and all associated data
+     */
+    public void deleteAccount() {
+        User user = getCurrentUser();
+        log.info("Deleting account for user: {}", user.getId());
+        
+        try {
+            // Delete user profile image if exists
+            if (user.getProfileImage() != null) {
+                Path imagePath = Paths.get("uploads").resolve(user.getProfileImage());
+                try {
+                    Files.delete(imagePath);
+                } catch (Exception e) {
+                    log.warn("Failed to delete profile image: {}", e.getMessage());
+                }
+            }
+            
+            // Delete user from database (CASCADE will handle related data)
+            userRepository.deleteById(user.getId());
+            log.info("User account deleted successfully: {}", user.getId());
+        } catch (Exception e) {
+            log.error("Error deleting account: {}", e.getMessage());
+            throw new RuntimeException("Failed to delete account: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Resets all user data (transactions, budgets, goals) but keeps the account
+     */
+    public void resetAccountData() {
+        User user = getCurrentUser();
+        log.info("Resetting account data for user: {}", user.getId());
+        
+        try {
+            // Delete all transactions for this user
+            transactionRepository.deleteByUser(user);
+            log.info("Deleted all transactions for user: {}", user.getId());
+            
+            // Delete all budgets for this user
+            budgetRepository.deleteByUser(user);
+            log.info("Deleted all budgets for user: {}", user.getId());
+            
+            // Delete all goals for this user
+            goalRepository.deleteByUser(user);
+            log.info("Deleted all goals for user: {}", user.getId());
+            
+            log.info("Account data reset successfully for user: {}", user.getId());
+        } catch (Exception e) {
+            log.error("Error resetting account data: {}", e.getMessage());
+            throw new RuntimeException("Failed to reset account data: " + e.getMessage());
         }
     }
 }

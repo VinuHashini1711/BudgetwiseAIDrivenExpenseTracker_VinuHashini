@@ -5,21 +5,35 @@
 .profile-container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--spacing-2xl);
   max-width: 100%;
-  padding: 24px;
+  padding: var(--page-padding);
   background: transparent;
   min-height: 100vh;
+}
+
+@media (max-width: 768px) {
+  .profile-container {
+    padding: var(--page-padding-tablet);
+    gap: var(--spacing-xl);
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-container {
+    padding: var(--page-padding-mobile);
+    gap: var(--spacing-lg);
+  }
 }
 
 .profile-header {
   display: flex;
   align-items: center;
-  gap: 24px;
-  margin-bottom: 24px;
-  padding: 28px;
+  gap: var(--spacing-2xl);
+  margin-bottom: var(--spacing-2xl);
+  padding: var(--spacing-3xl);
   background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
-  border-radius: 16px;
+  border-radius: var(--radius-2xl);
   border: 2px solid #0369a1;
   position: relative;
   overflow: hidden;

@@ -3,37 +3,43 @@
 .goals-container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 32px;
+  gap: var(--spacing-2xl);
+  padding: var(--page-padding);
   background-color: #f9fafb;
   min-height: 100vh;
+}
+
+@media (max-width: 768px) {
+  .goals-container {
+    padding: var(--page-padding-tablet);
+    gap: var(--spacing-xl);
+  }
+}
+
+@media (max-width: 480px) {
+  .goals-container {
+    padding: var(--page-padding-mobile);
+    gap: var(--spacing-lg);
+  }
 }
 
 .goals-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 32px;
-  padding-bottom: 20px;
+  margin-bottom: var(--spacing-4xl);
+  padding-bottom: var(--spacing-xl);
   border-bottom: 2px solid #e5e7eb;
 }
 
 .goals-header h1 {
   font-weight: 700;
   font-size: 32px;
-  margin: 0 0 8px 0;
+  margin: 0 0 var(--spacing-sm) 0;
   color: #1f2937;
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.goals-header h1::before {
-  content: '';
-  width: 4px;
-  height: 32px;
-  background: linear-gradient(180deg, #8b5cf6, #ec4899);
-  border-radius: 2px;
+  gap: var(--spacing-sm);
 }
 
 .goals-header p {
@@ -45,7 +51,7 @@
 
 .goals-header-actions {
   display: flex;
-  gap: 12px;
+  gap: var(--spacing-md);
 }
 
 .new-goal-btn {

@@ -37,6 +37,11 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/profile/avatar/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/api/profile/**").authenticated()
+                .requestMatchers("/api/settings/**").authenticated()
+                .requestMatchers("/api/transactions/**").authenticated()
+                .requestMatchers("/api/budgets/**").authenticated()
+                .requestMatchers("/api/goals/**").authenticated()
+                .requestMatchers("/api/export/**").authenticated()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session

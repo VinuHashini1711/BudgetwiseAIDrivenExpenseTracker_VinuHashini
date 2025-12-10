@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from '../api/axios';
 import { useTheme } from '../context/ThemeContext';
+import { TransactionContext } from '../context/TransactionContext';
 import '../styles/Settings.css';
 
 export default function Settings(){
   const { isDarkMode, toggleTheme } = useTheme();
+  const { transactions } = useContext(TransactionContext);
   
   const [settings, setSettings] = useState({
     language: 'us English',
@@ -13,6 +15,30 @@ export default function Settings(){
     riskTolerance: 'Moderate - Balanced approach to risk and return'
   });
   const [loading, setLoading] = useState(false);
+  
+  const handleCloudBackup = async (service) => {
+    try {
+      setLoading(true);
+      const response = await axios.post(`/api/backup/${service}`, {
+        transactions,
+        settings,
+        timestamp: new Date().toISOString()
+      });
+      
+      if (response.data.authUrl) {
+        // Open auth window for OAuth
+        window.open(response.data.authUrl, '_blank', 'width=600,height=600');
+        alert(`Please authorize ${service} access in the popup window`);
+      } else {
+        alert(`Backup to ${service} completed successfully!`);
+      }
+    } catch (error) {
+      console.error('Backup error:', error);
+      alert(`Backup to ${service} failed: ` + (error.response?.data?.message || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Load settings on mount
   useEffect(() => {
@@ -59,6 +85,82 @@ export default function Settings(){
     } catch (error) {
       console.error('Error saving settings:', error);
       alert(error.response?.data?.message || 'Failed to save settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      setLoading(true);
+      const confirmed = window.confirm(
+        'Are you sure you want to delete your account? This will permanently remove all your data and cannot be undone.'
+      );
+      
+      if (!confirmed) {
+        setLoading(false);
+        return;
+      }
+      
+      const finalConfirm = window.confirm(
+        'This is your final warning. Delete account permanently? You will be logged out immediately.'
+      );
+      
+      if (!finalConfirm) {
+        setLoading(false);
+        return;
+      }
+      
+      // Call delete endpoint
+      const response = await axios.delete('/api/profile/account');
+      
+      if (response.status === 200) {
+        alert('Account deleted successfully. You will be logged out now.');
+        // Clear local storage and redirect to login
+        localStorage.removeItem('token');
+        localStorage.removeItem('bw_token');
+        window.location.href = '/login';
+      }
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      alert(error.response?.data?.message || 'Failed to delete account: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetAccount = async () => {
+    try {
+      setLoading(true);
+      const confirmed = window.confirm(
+        'Are you sure you want to reset all your data? This will delete all transactions, budgets, and goals but keep your account. This action cannot be undone.'
+      );
+      
+      if (!confirmed) {
+        setLoading(false);
+        return;
+      }
+      
+      const finalConfirm = window.confirm(
+        'Final confirmation: Reset all account data? This cannot be undone.'
+      );
+      
+      if (!finalConfirm) {
+        setLoading(false);
+        return;
+      }
+      
+      // Call reset endpoint
+      const response = await axios.post('/api/profile/reset-data');
+      
+      if (response.status === 200) {
+        alert('Account data reset successfully. All your data has been cleared.');
+        // Optionally refresh the page or redirect
+        window.location.href = '/dashboard';
+      }
+    } catch (error) {
+      console.error('Error resetting account:', error);
+      alert(error.response?.data?.message || 'Failed to reset account: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -300,6 +402,47 @@ export default function Settings(){
               </select>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Account Management */}
+      <div className="card" style={{marginBottom:24, background: isDarkMode ? '#1e293b' : '#ffffff'}}>
+        <div style={{display:'flex', gap:12, alignItems:'center', marginBottom:16}}>
+          <div style={{
+            width:40, 
+            height:40, 
+            background: isDarkMode ? '#7f1d1d' : '#fee2e2', 
+            borderRadius:8,
+            display:'flex',
+            alignItems:'center',
+            justifyContent:'center',
+            fontSize:20
+          }}>
+            ⚠️
+          </div>
+          <div>
+            <div style={{fontWeight:600, fontSize:16, color: isDarkMode ? '#f1f5f9' : '#111827'}}>Account Management</div>
+            <div style={{color: isDarkMode ? '#94a3b8' : '#6b7280', fontSize:14}}>Reset or delete your account data</div>
+          </div>
+        </div>
+
+        <div style={{display:'flex', gap:12}}>
+          <button 
+            onClick={handleResetAccount}
+            disabled={loading}
+            className="btn secondary"
+            style={{padding:'10px 20px', fontSize:14, color: '#f59e0b', borderColor: '#f59e0b', opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer'}}
+          >
+            🔄 {loading ? 'Processing...' : 'Reset Account'}
+          </button>
+          <button 
+            onClick={handleDeleteAccount}
+            disabled={loading}
+            className="btn"
+            style={{padding:'10px 20px', fontSize:14, background: '#dc2626', borderColor: '#dc2626', opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer'}}
+          >
+            🗑️ {loading ? 'Processing...' : 'Delete Account'}
+          </button>
         </div>
       </div>
 
