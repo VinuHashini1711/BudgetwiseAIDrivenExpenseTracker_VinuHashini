@@ -92,102 +92,95 @@ export default function Register() {
 
   return (
     <div className="auth-wrapper">
-      <div className="card auth-card">
-        <h2
-          style={{
-            textAlign: 'center',
-            marginBottom: 24,
-            color: '#2563eb',
-            fontSize: 24,
-            fontWeight: 'bold',
-          }}
-        >
-          Create Your Account
-        </h2>
+      <div className="auth-card">
+        <h2>Create Your Account</h2>
+        <p>Sign up to get started with BudgetWise</p>
 
         {/* Error message */}
         {error && (
-          <div
-            style={{
-              color: '#dc2626',
-              marginBottom: 16,
-              background: '#fef2f2',
-              padding: '10px 16px',
-              borderRadius: 8,
-              fontSize: 14,
-            }}
-          >
-            Registration failed: {error}
+          <div className="auth-error">
+            <span>⚠️</span>
+            <div>
+              <strong>Registration Error</strong>
+              <p>{error}</p>
+            </div>
           </div>
         )}
 
         {/* Success message */}
         {successMsg && (
-          <div
-            style={{
-              color: '#166534',
-              marginBottom: 16,
-              background: '#dcfce7',
-              padding: '10px 16px',
-              borderRadius: 8,
-              fontSize: 14,
-            }}
-          >
-            {successMsg}
+          <div className="auth-success">
+            <span>✓</span>
+            <div>
+              <strong>Success!</strong>
+              <p>{successMsg}</p>
+            </div>
           </div>
         )}
 
-        <form onSubmit={submit}>
+        <form onSubmit={submit} className="auth-form">
           {/* Username */}
           <div className="form-row">
-            <label>Username</label>
+            <label htmlFor="username">
+              <span>👤</span> Username
+            </label>
             <input
+              id="username"
               type="text"
               name="username"
               value={form.username}
               onChange={handleChange}
+              placeholder="Enter your username"
               required
-              style={{ padding: '10px 16px' }}
             />
           </div>
 
           {/* Email */}
           <div className="form-row">
-            <label>Email</label>
+            <label htmlFor="email">
+              <span>📧</span> Email
+            </label>
             <input
+              id="email"
               type="email"
               name="email"
               value={form.email}
               onChange={handleChange}
+              placeholder="Enter your email"
               required
-              style={{ padding: '10px 16px' }}
             />
           </div>
 
           {/* Password */}
           <div className="form-row">
-            <label>Password</label>
+            <label htmlFor="password">
+              <span>🔐</span> Password
+            </label>
             <div style={{ position: 'relative' }}>
               <input
+                id="password"
                 type={showPassword ? 'text' : 'password'}
                 name="password"
                 value={form.password}
                 onChange={handleChange}
+                placeholder="Enter your password (min 8 characters)"
                 required
-                style={{ padding: '10px 16px', width: '100%' }}
               />
               <button
                 type="button"
                 onClick={() => togglePasswordVisibility('password')}
                 style={{
                   position: 'absolute',
-                  right: 12,
+                  right: 14,
                   top: '50%',
                   transform: 'translateY(-50%)',
                   border: 'none',
                   background: 'none',
-                  color: '#6b7280',
+                  font: 'inherit',
                   cursor: 'pointer',
+                  padding: '8px',
+                  opacity: '0.6',
+                  transition: 'opacity 0.2s',
                 }}
               >
                 {showPassword ? '👁️' : '👁️‍🗨️'}
@@ -197,28 +190,34 @@ export default function Register() {
 
           {/* Confirm Password */}
           <div className="form-row">
-            <label>Confirm Password</label>
+            <label htmlFor="confirmPassword">
+              <span>🔐</span> Confirm Password
+            </label>
             <div style={{ position: 'relative' }}>
               <input
+                id="confirmPassword"
                 type={showConfirmPassword ? 'text' : 'password'}
                 name="confirmPassword"
                 value={form.confirmPassword}
                 onChange={handleChange}
+                placeholder="Confirm your password"
                 required
-                style={{ padding: '10px 16px', width: '100%' }}
               />
               <button
                 type="button"
                 onClick={() => togglePasswordVisibility('confirm')}
                 style={{
                   position: 'absolute',
-                  right: 12,
+                  right: 14,
                   top: '50%',
                   transform: 'translateY(-50%)',
                   border: 'none',
                   background: 'none',
-                  color: '#6b7280',
+                  font: 'inherit',
                   cursor: 'pointer',
+                  padding: '8px',
+                  opacity: '0.6',
+                  transition: 'opacity 0.2s',
                 }}
               >
                 {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
@@ -228,16 +227,22 @@ export default function Register() {
 
           {/* Captcha */}
           <div className="form-row">
-            <label>Captcha</label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <label htmlFor="captcha">
+              <span>🛡️</span> Captcha
+            </label>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
               <div
                 style={{
-                  background: '#f3f4f6',
-                  padding: '8px 16px',
-                  borderRadius: 6,
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  padding: '10px 16px',
+                  borderRadius: '8px',
                   fontFamily: 'monospace',
-                  letterSpacing: 2,
+                  letterSpacing: '3px',
                   userSelect: 'none',
+                  color: '#f1f5f9',
+                  fontWeight: 'bold',
+                  minWidth: '120px',
+                  textAlign: 'center',
                 }}
               >
                 {captcha}
@@ -245,61 +250,51 @@ export default function Register() {
               <button
                 type="button"
                 onClick={generateCaptcha}
+                title="Refresh captcha"
                 style={{
                   border: 'none',
-                  background: 'none',
-                  color: '#2563eb',
+                  background: 'rgba(102, 126, 234, 0.2)',
+                  color: '#667eea',
                   cursor: 'pointer',
-                  fontSize: 20,
+                  fontSize: '18px',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = 'rgba(102, 126, 234, 0.3)';
+                  e.target.style.transform = 'rotate(180deg)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = 'rgba(102, 126, 234, 0.2)';
+                  e.target.style.transform = 'rotate(0deg)';
                 }}
               >
                 ↺
               </button>
             </div>
             <input
+              id="captcha"
               type="text"
               name="captchaInput"
               value={form.captchaInput}
               onChange={handleChange}
-              placeholder="Enter captcha"
+              placeholder="Enter the captcha code"
               required
-              style={{ padding: '10px 16px', marginTop: 8 }}
             />
           </div>
 
           {/* Register Button */}
           <button
             type="submit"
-            className="btn"
-            style={{
-              width: '100%',
-              padding: '12px',
-              marginTop: 8,
-              backgroundColor: '#2563eb',
-              color: 'white',
-              border: 'none',
-              borderRadius: 8,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
+            className="auth-submit"
           >
             Register
+            <span style={{ fontSize: '18px' }}>→</span>
           </button>
 
-          <div
-            style={{
-              textAlign: 'center',
-              marginTop: 16,
-              fontSize: 14,
-            }}
-          >
-            Already have an account?{' '}
-            <Link
-              to="/login"
-              style={{ color: '#2563eb', textDecoration: 'none' }}
-            >
-              Login here
-            </Link>
+          <div className="auth-link">
+            <p>Already have an account? <Link to="/login">Sign In</Link></p>
           </div>
         </form>
       </div>
