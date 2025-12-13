@@ -151,7 +151,7 @@ html, body {
   border-radius: 24px;
   padding: 56px;
   width: 100%;
-  max-width: 550px;
+  max-width: 420px;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(148, 163, 184, 0.2);
   height: fit-content;

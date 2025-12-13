@@ -9,6 +9,9 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSuccess, setResetSuccess] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -23,6 +26,27 @@ export default function Login() {
       return;
     }
     navigate('/dashboard');
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    setResetSuccess('');
+    
+    if (!resetEmail) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    // Simulate password reset (you can add backend API call here)
+    setTimeout(() => {
+      setResetSuccess(`Password reset link sent to ${resetEmail}. Please check your email.`);
+      setResetEmail('');
+      setTimeout(() => {
+        setShowForgotModal(false);
+        setResetSuccess('');
+      }, 3000);
+    }, 1000);
   };
 
   return (
@@ -107,7 +131,16 @@ export default function Login() {
                   <input type="checkbox" />
                   <span>Remember me</span>
                 </label>
-                <a href="#" className="login-forgot-password">Forgot password?</a>
+                <a 
+                  href="#" 
+                  className="login-forgot-password"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowForgotModal(true);
+                  }}
+                >
+                  Forgot password?
+                </a>
               </div>
 
               {/* Login Button */}
@@ -137,6 +170,75 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="login-modal-overlay" onClick={() => setShowForgotModal(false)}>
+          <div className="login-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="login-modal-header">
+              <h3>Reset Password</h3>
+              <button 
+                className="login-modal-close"
+                onClick={() => setShowForgotModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            
+            {resetSuccess ? (
+              <div className="login-success-message">
+                <span className="login-success-icon">✅</span>
+                <p>{resetSuccess}</p>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPassword} className="login-modal-form">
+                <p className="login-modal-description">
+                  Enter your email address and we'll send you a link to reset your password.
+                </p>
+                
+                {error && (
+                  <div className="login-error-banner">
+                    <span className="login-error-icon">⚠️</span>
+                    <p>{error}</p>
+                  </div>
+                )}
+                
+                <div className="login-input-group">
+                  <label htmlFor="reset-email" className="login-label">
+                    <span className="login-label-icon">📧</span>
+                    Email Address
+                  </label>
+                  <input
+                    id="reset-email"
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    required
+                    className="login-input-field"
+                  />
+                </div>
+                
+                <div className="login-modal-actions">
+                  <button
+                    type="button"
+                    className="login-modal-btn login-modal-btn-cancel"
+                    onClick={() => setShowForgotModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="login-modal-btn login-modal-btn-submit"
+                  >
+                    Send Reset Link
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

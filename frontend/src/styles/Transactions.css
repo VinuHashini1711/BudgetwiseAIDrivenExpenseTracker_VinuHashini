@@ -49,7 +49,7 @@
 
 /* LIGHT MODE - Transactions Page Background */
 body:not([style*="background: rgb(15, 23, 42)"]) .transactions-page {
-  background: #f9fafb;
+  background: transparent;
 }
 
 /* LIGHT MODE - Header */
@@ -625,14 +625,14 @@ body:not([style*="background: rgb(15, 23, 42)"]) .export-btn:hover {
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .currency-selector select {
-  background-color: #fff;
-  border-color: #d1d5db;
+  background-color: rgba(255, 255, 255, 0.4);
+  border-color: rgba(209, 213, 219, 0.6);
   color: #1f2937;
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .search-bar {
-  background: #fff;
-  border: 1px solid #d1d5db;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(209, 213, 219, 0.5);
   color: #1f2937;
 }
 
@@ -646,15 +646,15 @@ body:not([style*="background: rgb(15, 23, 42)"]) .search-bar:focus {
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .filter-btn {
-  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
-  border: 1.5px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.3);
+  border: 1.5px solid rgba(229, 231, 235, 0.6);
   color: #6b7280;
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .filter-btn:hover {
   border-color: #2563eb;
   color: #2563eb;
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  background: rgba(239, 246, 255, 0.5);
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
 }
 
@@ -665,8 +665,8 @@ body:not([style*="background: rgb(15, 23, 42)"]) .filter-btn.active {
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .filter-select {
-  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
-  border: 1.5px solid #d1d5db;
+  background: rgba(255, 255, 255, 0.3);
+  border: 1.5px solid rgba(209, 213, 219, 0.6);
   color: #6b7280;
 }
 
@@ -676,8 +676,8 @@ body:not([style*="background: rgb(15, 23, 42)"]) .filter-select:focus {
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .date-range-filter {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: rgba(249, 250, 251, 0.3);
+  border: 1px solid rgba(229, 231, 235, 0.5);
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .date-input-group label {
@@ -685,8 +685,8 @@ body:not([style*="background: rgb(15, 23, 42)"]) .date-input-group label {
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .date-input {
-  background: white;
-  border: 1px solid #d1d5db;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(209, 213, 219, 0.6);
   color: #1f2937;
 }
 
@@ -700,29 +700,30 @@ body:not([style*="background: rgb(15, 23, 42)"]) .date-input:focus {
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .transaction-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
-  border: 1.5px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: transparent;
+  border: 1.5px solid rgba(229, 231, 235, 0.5);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .transaction-card:hover {
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  border-color: rgba(229, 231, 235, 0.8);
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .transaction-card.income {
-  background: linear-gradient(135deg, #f0fdf4 0%, #fff 100%);
+  background: rgba(240, 253, 244, 0.3);
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .transaction-card.income:hover {
-  background: linear-gradient(135deg, #dcfce7 0%, #fff 100%);
+  background: rgba(220, 252, 231, 0.4);
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .transaction-card.expense {
-  background: linear-gradient(135deg, #fef2f2 0%, #fff 100%);
+  background: rgba(254, 242, 242, 0.3);
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .transaction-card.expense:hover {
-  background: linear-gradient(135deg, #fee2e2 0%, #fff 100%);
+  background: rgba(254, 226, 226, 0.4);
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .txn-description {

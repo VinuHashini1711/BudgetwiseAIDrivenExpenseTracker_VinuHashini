@@ -22,8 +22,8 @@ export default function Export() {
   // Theme colors
   const textColor = isDarkMode ? '#e0e7ff' : '#1f2937';
   const secondaryTextColor = isDarkMode ? '#a0aec0' : '#6b7280';
-  const bgColor = isDarkMode ? '#1e1b4b' : 'white';
-  const cardBg = isDarkMode ? '#2d2a45' : '#f9fafb';
+  const bgColor = isDarkMode ? '#1e1b4b' : 'transparent';
+  const cardBg = isDarkMode ? '#2d2a45' : 'rgba(255, 255, 255, 0.4)';
 
   const exportSections = [
     { id: 'dashboard', name: 'Dashboard Summary', icon: '📊' },
@@ -385,7 +385,7 @@ export default function Export() {
           zIndex: 1000
         }}>
           <div style={{
-            background: isDarkMode ? '#2d2a45' : 'white',
+            background: isDarkMode ? '#2d2a45' : 'rgba(255, 255, 255, 0.95)',
             padding: '32px',
             borderRadius: '12px',
             width: '90%',
@@ -469,7 +469,7 @@ export default function Export() {
           zIndex: 1000
         }}>
           <div style={{
-            background: isDarkMode ? '#2d2a45' : 'white',
+            background: isDarkMode ? '#2d2a45' : 'rgba(255, 255, 255, 0.95)',
             padding: '32px',
             borderRadius: '12px',
             width: '90%',

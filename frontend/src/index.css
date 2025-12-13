@@ -62,7 +62,7 @@
 body{
   margin:0;
   font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  background:var(--bg);
+  background: #F5EFE1;
   color:var(--text);
   transition: background 0.3s, color 0.3s;
 }
@@ -89,6 +89,7 @@ body[style*="color: rgb(241, 245, 249)"] {
   height: 100vh;
   overflow-y: auto;
   overflow-x: hidden;
+  background: transparent;
 }
 
 @media (max-width: 768px) {
@@ -130,7 +131,11 @@ body[style*="background: rgb(15, 23, 42)"] .card {
 /* Sidebar */
 .sidebar{
   width:300px; 
-  background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+  background: linear-gradient(rgba(255, 255, 255, 0.15), rgba(249, 250, 251, 0.15)),
+              url('/images/marble-bg%202.jpg');
+  background-size: 150%;
+  background-position: center;
+  background-attachment: fixed;
   border-right:2px solid #e5e7eb; 
   padding:24px 16px; 
   display:flex; 
@@ -156,7 +161,11 @@ body[style*="background: rgb(15, 23, 42)"] .card {
 }
 
 body[style*="background: rgb(15, 23, 42)"] .sidebar {
-  background: linear-gradient(180deg, #1a1f2e 0%, #0f172a 100%);
+  background: linear-gradient(rgba(26, 31, 46, 0.3), rgba(15, 23, 42, 0.4)),
+              url('/images/marble-bg%202.jpg');
+  background-size: 150%;
+  background-position: center;
+  background-attachment: fixed;
   border-right-color: #0ea5e9;
   box-shadow: 4px 0 16px rgba(14, 165, 233, 0.15);
 }
