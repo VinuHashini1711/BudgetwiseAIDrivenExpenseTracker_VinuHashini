@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import axios from '../api/axios';
 import '../styles/Login.css';
 
 export default function Login() {
@@ -32,21 +33,30 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setResetSuccess('');
+    setLoading(true);
     
     if (!resetEmail) {
       setError('Please enter your email address');
+      setLoading(false);
       return;
     }
 
-    // Simulate password reset (you can add backend API call here)
-    setTimeout(() => {
-      setResetSuccess(`Password reset link sent to ${resetEmail}. Please check your email.`);
-      setResetEmail('');
-      setTimeout(() => {
-        setShowForgotModal(false);
-        setResetSuccess('');
-      }, 3000);
-    }, 1000);
+    try {
+      const response = await axios.post('/api/auth/forgot-password', { email: resetEmail });
+      
+      if (response.data.success) {
+        setResetSuccess(`Password reset link sent to ${resetEmail}. Please check your email.`);
+        setResetEmail('');
+        setTimeout(() => {
+          setShowForgotModal(false);
+          setResetSuccess('');
+        }, 3000);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to send reset email. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

@@ -20,10 +20,12 @@ export function ThemeProvider({ children }) {
       document.documentElement.style.colorScheme = 'dark';
       document.body.style.background = '#0f172a';
       document.body.style.color = '#f1f5f9';
+      document.body.setAttribute('data-theme', 'dark');
     } else {
       document.documentElement.style.colorScheme = 'light';
       document.body.style.background = '#F5EFE1';
       document.body.style.color = '#111827';
+      document.body.setAttribute('data-theme', 'light');
     }
   }, [isDarkMode]);
 

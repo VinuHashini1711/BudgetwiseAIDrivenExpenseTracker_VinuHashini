@@ -13,7 +13,8 @@ export default function Profile(){
     phoneNumber: '',
     dateOfBirth: '',
     bio: '',
-    profileImageUrl: ''
+    profileImageUrl: '',
+    createdAt: null
   });
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -41,7 +42,8 @@ export default function Profile(){
         phoneNumber: data.phoneNumber || '',
         dateOfBirth: data.dateOfBirth || '',
         bio: data.bio || '',
-        profileImageUrl: data.profileImageUrl || ''
+        profileImageUrl: data.profileImageUrl || '',
+        createdAt: data.createdAt || null
       });
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -68,6 +70,13 @@ export default function Profile(){
       age--;
     }
     return age;
+  };
+
+  const formatMemberSince = (dateString) => {
+    if (!dateString) return 'Legacy Member';
+    const date = new Date(dateString);
+    const options = { month: 'short', year: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
   };
 
   const handleChange = (field, value) => {
@@ -123,8 +132,8 @@ export default function Profile(){
 
   if(!profile) return <div>Loading...</div>;
 
-  const memberSinceDate = 'Nov 2025';
   const age = calculateAge(profile.dateOfBirth);
+  const memberSince = formatMemberSince(profile.createdAt);
 
   return (
     <div>
@@ -244,7 +253,7 @@ export default function Profile(){
             📅
           </div>
           <div style={{ color: '#6b7280', marginBottom: 4 }}>Member Since</div>
-          <div style={{ fontSize: 18, fontWeight: 600, color: '#6366f1' }}>Nov 2025</div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: '#6366f1' }}>{memberSince}</div>
         </div>
 
         {/* Age */}

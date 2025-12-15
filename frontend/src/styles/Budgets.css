@@ -692,7 +692,7 @@
    ====================================== */
 
 body:not([style*="background: rgb(15, 23, 42)"]) .budgets-page {
-  background: #f9fafb;
+  background: transparent;
 }
 
 body:not([style*="background: rgb(15, 23, 42)"]) .budgets-header-section {

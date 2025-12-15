@@ -3,7 +3,7 @@
 .community-container {
   padding: var(--page-padding);
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: transparent;
 }
 
 @media (max-width: 768px) {

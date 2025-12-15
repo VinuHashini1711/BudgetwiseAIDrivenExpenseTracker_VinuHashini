@@ -4,10 +4,13 @@ import com.budgetwise.dto.AuthRequest;
 import com.budgetwise.dto.AuthResponse;
 import com.budgetwise.dto.RegisterRequest;
 import com.budgetwise.service.AuthService;
+import com.budgetwise.service.PasswordResetService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
     // ---------------- REGISTER ----------------
     @PostMapping("/register")
@@ -71,6 +75,58 @@ public class AuthController {
         catch (Exception ex) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new AuthResponse(null, null, null, "Logout failed: " + ex.getMessage()));
+        }
+    }
+
+    // ---------------- FORGOT PASSWORD ----------------
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            if (email == null || email.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("success", false, "message", "Email is required"));
+            }
+
+            passwordResetService.createPasswordResetToken(email);
+            
+            return ResponseEntity.ok(
+                    Map.of("success", true, "message", "Password reset link sent to your email")
+            );
+
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("success", false, "message", ex.getMessage()));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to process request"));
+        }
+    }
+
+    // ---------------- RESET PASSWORD ----------------
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
+        try {
+            String token = request.get("token");
+            String newPassword = request.get("newPassword");
+
+            if (token == null || newPassword == null) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("success", false, "message", "Token and new password are required"));
+            }
+
+            passwordResetService.resetPassword(token, newPassword);
+            
+            return ResponseEntity.ok(
+                    Map.of("success", true, "message", "Password reset successful")
+            );
+
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("success", false, "message", ex.getMessage()));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to reset password"));
         }
     }
 }

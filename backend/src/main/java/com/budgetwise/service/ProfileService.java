@@ -7,11 +7,13 @@ import com.budgetwise.repository.UserRepository;
 import com.budgetwise.repository.TransactionRepository;
 import com.budgetwise.repository.BudgetRepository;
 import com.budgetwise.repository.GoalRepository;
+import com.budgetwise.repository.PasswordResetTokenRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -31,6 +33,7 @@ public class ProfileService {
     private final TransactionRepository transactionRepository;
     private final BudgetRepository budgetRepository;
     private final GoalRepository goalRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
 
     /**
      * Retrieves the currently authenticated user based on the identifier
@@ -62,6 +65,7 @@ public class ProfileService {
                 .profileImageUrl(user.getProfileImage() != null
                         ? "/api/profile/avatar/" + user.getProfileImage()
                         : null)
+                .createdAt(user.getCreatedAt())
                 .build();
     }
 
@@ -134,6 +138,7 @@ public class ProfileService {
                 .profileImageUrl(user.getProfileImage() != null
                         ? "/api/profile/avatar/" + user.getProfileImage()
                         : null)
+                .createdAt(user.getCreatedAt())
                 .build();
     }
 
@@ -174,6 +179,7 @@ public class ProfileService {
                     .dateOfBirth(user.getDateOfBirth())
                     .bio(user.getBio())
                     .profileImageUrl("/api/profile/avatar/" + filename)
+                    .createdAt(user.getCreatedAt())
                     .build();
 
         } catch (IOException ex) {
@@ -184,6 +190,7 @@ public class ProfileService {
     /**
      * Deletes the user account and all associated data
      */
+    @Transactional
     public void deleteAccount() {
         User user = getCurrentUser();
         log.info("Deleting account for user: {}", user.getId());
@@ -198,6 +205,10 @@ public class ProfileService {
                     log.warn("Failed to delete profile image: {}", e.getMessage());
                 }
             }
+            
+            // Delete password reset tokens first (foreign key constraint)
+            passwordResetTokenRepository.deleteByUser(user);
+            log.info("Deleted password reset tokens for user: {}", user.getId());
             
             // Delete user from database (CASCADE will handle related data)
             userRepository.deleteById(user.getId());

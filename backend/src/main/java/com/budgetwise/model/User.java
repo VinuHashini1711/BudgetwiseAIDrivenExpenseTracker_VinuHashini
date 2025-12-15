@@ -9,6 +9,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -63,6 +64,17 @@ public class User implements UserDetails {
 
     @Column(name = "bio", columnDefinition = "TEXT", nullable = true)
     private String bio;
+
+    // ✅ Timestamp fields (nullable for existing users)
+    @Column(name = "created_at", nullable = true)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 
     // ✅ Relationships
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)

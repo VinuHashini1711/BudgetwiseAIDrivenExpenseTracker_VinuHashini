@@ -119,12 +119,9 @@ export default function AIInsights() {
   const textColor = isDarkMode ? '#e0e7ff' : '#1f2937';
   const secondaryTextColor = isDarkMode ? '#a0aec0' : '#6b7280';
   const cardBg = isDarkMode ? '#2d2a45' : '#ffffff';
-  const bgGradient = isDarkMode
-    ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
-    : 'linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)';
 
   return (
-    <div style={{ background: bgGradient, minHeight: '100vh', padding: '24px' }}>
+    <div className="ai-insights-page">
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         {/* Header */}
         <div

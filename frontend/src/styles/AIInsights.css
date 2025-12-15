@@ -1,5 +1,23 @@
 /* ====== AIInsights Page - Enhanced Animations & Styling ====== */
 
+.ai-insights-page {
+  padding: var(--page-padding);
+  min-height: 100vh;
+  background: transparent;
+}
+
+@media (max-width: 768px) {
+  .ai-insights-page {
+    padding: var(--page-padding-tablet);
+  }
+}
+
+@media (max-width: 480px) {
+  .ai-insights-page {
+    padding: var(--page-padding-mobile);
+  }
+}
+
 /* ====== Keyframe Animations ====== */
 @keyframes slideInDown {
   from {

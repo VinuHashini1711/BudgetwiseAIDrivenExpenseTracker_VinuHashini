@@ -211,7 +211,7 @@ export default function Community() {
   const buttonHover = isDarkMode ? '#1e3a8a' : '#1d4ed8';
 
   return (
-    <div style={{ padding: '24px', background: bgColor, minHeight: '100vh' }}>
+    <div className="community-container">
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{ marginBottom: '32px' }}>

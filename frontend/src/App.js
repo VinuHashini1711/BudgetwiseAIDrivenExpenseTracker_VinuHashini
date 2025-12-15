@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import Budgets from './pages/Budgets';
@@ -24,11 +25,11 @@ function AppContent() {
   const location = useLocation();
 
   // Pages where Sidebar should be hidden
-  const noSidebarRoutes = ['/login', '/register', '/welcome', '/'];
+  const noSidebarRoutes = ['/login', '/register', '/welcome', '/reset-password', '/'];
 
   // Force redirect to Welcome/Home page unless user is authenticated
   // If not authenticated, ALWAYS redirect to home (/) first
-  if (!user && location.pathname !== '/' && location.pathname !== '/login' && location.pathname !== '/register') {
+  if (!user && location.pathname !== '/' && location.pathname !== '/login' && location.pathname !== '/register' && location.pathname !== '/reset-password') {
     return (
       <div className="app">
         <div className="container">
@@ -60,6 +61,7 @@ function AppContent() {
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

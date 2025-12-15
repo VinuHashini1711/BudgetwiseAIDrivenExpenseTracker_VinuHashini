@@ -82,6 +82,12 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- Email Support -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- PDF Export Dependencies -->
         <dependency>
             <groupId>com.itextpdf</groupId>
