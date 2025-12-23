@@ -121,17 +121,53 @@ html, body {
   font-size: 16px;
   border-radius: 12px;
   border: 2px solid #4c1d95;
-  background: #2e1065;
-  color: #f1f5f9;
+  background: #1e1b4b !important;
+  color: #ffffff !important;
   transition: all 0.3s ease;
+  caret-color: #ffffff;
+}
+
+.register-form-group input::placeholder,
+.form-row input::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+/* Text selection styling */
+.register-form-group input::selection,
+.form-row input::selection {
+  background: #8b5cf6;
+  color: #ffffff;
+}
+
+.register-form-group input::-moz-selection,
+.form-row input::-moz-selection {
+  background: #8b5cf6;
+  color: #ffffff;
 }
 
 .register-form-group input:focus,
 .form-row input:focus {
   outline: none;
   border-color: #8b5cf6;
-  background: #0f172a;
+  background: #1e1b4b !important;
+  color: #ffffff !important;
   box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.2);
+}
+
+/* Fix for autofill background */
+.register-form-group input:-webkit-autofill,
+.form-row input:-webkit-autofill,
+.register-form-group input:-webkit-autofill:hover,
+.form-row input:-webkit-autofill:hover,
+.register-form-group input:-webkit-autofill:focus,
+.form-row input:-webkit-autofill:focus,
+.register-form-group input:-webkit-autofill:active,
+.form-row input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #1e1b4b inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 /* ===============================

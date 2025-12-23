@@ -1,846 +1,1365 @@
 package com.budgetwise.service;
 
-import com.budgetwise.model.Transaction;
 import com.budgetwise.model.Budget;
 import com.budgetwise.model.Goal;
+import com.budgetwise.model.Transaction;
 import com.budgetwise.model.User;
-import com.budgetwise.repository.TransactionRepository;
 import com.budgetwise.repository.BudgetRepository;
 import com.budgetwise.repository.GoalRepository;
+import com.budgetwise.repository.TransactionRepository;
 import com.budgetwise.repository.UserRepository;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.itextpdf.text.*;
 import com.itextpdf.text.pdf.*;
-import com.opencsv.CSVReader;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
-import java.io.InputStreamReader;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ExportImportService {
 
     private final TransactionRepository transactionRepository;
     private final BudgetRepository budgetRepository;
     private final GoalRepository goalRepository;
     private final UserRepository userRepository;
-    private final ObjectMapper objectMapper;
 
-    public byte[] exportData(String format, Map<String, Boolean> options) {
-        try {
-            User currentUser = getCurrentUser();
-            
-            Map<String, Object> data = new HashMap<>();
-            
-            if (options.getOrDefault("transactions", true)) {
-                List<Transaction> transactions = transactionRepository.findByUser(currentUser);
-                data.put("transactions", transactions);
-            }
-            
-            if (options.getOrDefault("budgets", true)) {
-                List<Budget> budgets = budgetRepository.findByUser(currentUser);
-                data.put("budgets", budgets);
-            }
-            
-            if (options.getOrDefault("goals", true)) {
-                List<Goal> goals = goalRepository.findByUser(currentUser);
-                data.put("goals", goals);
-            }
-            
-            data.put("exportDate", LocalDateTime.now().toString());
-            data.put("userName", currentUser.getUsername());
-            
-            switch (format.toLowerCase()) {
-                case "json":
-                    return exportAsJson(data);
-                case "csv":
-                    return exportAsCsv(data);
-                case "pdf":
-                    return exportAsPdf(data);
-                default:
-                    throw new IllegalArgumentException("Unsupported format: " + format);
-            }
-        } catch (Exception e) {
-            log.error("Export failed: ", e);
-            throw new RuntimeException("Export failed: " + e.getMessage());
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+    // Color palette for pie charts and styling
+    private static final BaseColor PRIMARY_COLOR = new BaseColor(79, 70, 229); // Indigo
+    private static final BaseColor SECONDARY_COLOR = new BaseColor(16, 185, 129); // Green
+    private static final BaseColor ACCENT_COLOR = new BaseColor(245, 158, 11); // Amber
+    private static final BaseColor DANGER_COLOR = new BaseColor(239, 68, 68); // Red
+    private static final BaseColor GRAY_COLOR = new BaseColor(107, 114, 128);
+    private static final BaseColor LIGHT_GRAY = new BaseColor(243, 244, 246);
+    
+    private static final BaseColor[] CHART_COLORS = {
+        new BaseColor(79, 70, 229),   // Indigo
+        new BaseColor(16, 185, 129),  // Green
+        new BaseColor(245, 158, 11),  // Amber
+        new BaseColor(239, 68, 68),   // Red
+        new BaseColor(59, 130, 246),  // Blue
+        new BaseColor(168, 85, 247),  // Purple
+        new BaseColor(236, 72, 153),  // Pink
+        new BaseColor(20, 184, 166),  // Teal
+        new BaseColor(249, 115, 22),  // Orange
+        new BaseColor(132, 204, 22),  // Lime
+    };
+
+    private User getCurrentUser() {
+        String identifier = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByUsername(identifier)
+                .or(() -> userRepository.findByEmail(identifier))
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    // ==================== EXPORT METHODS ====================
+
+    public byte[] exportData(String format, Map<String, Boolean> options) throws Exception {
+        User user = getCurrentUser();
+        
+        switch (format.toLowerCase()) {
+            case "pdf":
+                return exportToPdf(user, options);
+            case "csv":
+                return exportToCsv(user, options);
+            case "json":
+                return exportToJson(user, options);
+            default:
+                throw new IllegalArgumentException("Unsupported format: " + format);
         }
     }
 
-    private byte[] exportAsJson(Map<String, Object> data) throws Exception {
-        return objectMapper.writerWithDefaultPrettyPrinter()
-                .writeValueAsBytes(data);
-    }
-
-    private byte[] exportAsCsv(Map<String, Object> data) throws Exception {
-        StringBuilder csv = new StringBuilder();
-        
-        // Add header with export info
-        csv.append("BudgetWise Data Export\n");
-        csv.append("Export Date,").append(data.get("exportDate")).append("\n");
-        csv.append("User,").append(data.get("userName")).append("\n\n");
-        
-        // Export Transactions
-        if (data.containsKey("transactions")) {
-            csv.append("TRANSACTIONS\n");
-            csv.append("Date,Description,Type,Category,Amount,Currency,PaymentMethod\n");
-            @SuppressWarnings("unchecked")
-            List<Transaction> transactions = (List<Transaction>) data.get("transactions");
-            for (Transaction t : transactions) {
-                csv.append(escapeCsv(t.getDate().toString())).append(",")
-                   .append(escapeCsv(t.getDescription())).append(",")
-                   .append(escapeCsv(t.getType())).append(",")
-                   .append(escapeCsv(t.getCategory())).append(",")
-                   .append(t.getAmount()).append(",")
-                   .append(escapeCsv(t.getCurrency())).append(",")
-                   .append(escapeCsv(t.getPaymentMethod())).append("\n");
-            }
-            csv.append("\n");
-        }
-        
-        // Export Budgets
-        if (data.containsKey("budgets")) {
-            csv.append("BUDGETS\n");
-            csv.append("Category,Amount,StartDate,EndDate\n");
-            @SuppressWarnings("unchecked")
-            List<Budget> budgets = (List<Budget>) data.get("budgets");
-            for (Budget b : budgets) {
-                csv.append(escapeCsv(b.getCategory())).append(",")
-                   .append(b.getAmount()).append(",")
-                   .append(b.getStartDate()).append(",")
-                   .append(b.getEndDate()).append("\n");
-            }
-            csv.append("\n");
-        }
-        
-        // Export Goals
-        if (data.containsKey("goals")) {
-            csv.append("GOALS\n");
-            csv.append("GoalName,Category,TargetAmount,CurrentAmount,Deadline,Priority\n");
-            @SuppressWarnings("unchecked")
-            List<Goal> goals = (List<Goal>) data.get("goals");
-            for (Goal g : goals) {
-                csv.append(escapeCsv(g.getGoalName())).append(",")
-                   .append(escapeCsv(g.getCategory())).append(",")
-                   .append(g.getTargetAmount()).append(",")
-                   .append(g.getCurrentAmount()).append(",")
-                   .append(g.getDeadline()).append(",")
-                   .append(escapeCsv(g.getPriority())).append("\n");
-            }
-        }
-        
-        return csv.toString().getBytes();
-    }
-
-    private byte[] exportAsPdf(Map<String, Object> data) throws Exception {
+    private byte[] exportToPdf(User user, Map<String, Boolean> options) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         Document document = new Document(PageSize.A4, 40, 40, 50, 50);
         PdfWriter writer = PdfWriter.getInstance(document, baos);
+        
         document.open();
         
-        // Define colors
-        BaseColor primaryPurple = new BaseColor(139, 92, 246);
-        BaseColor darkPurple = new BaseColor(109, 40, 217);
-        BaseColor lightPurple = new BaseColor(233, 213, 255);
-        BaseColor incomeGreen = new BaseColor(16, 185, 129);
-        BaseColor expenseRed = new BaseColor(239, 68, 68);
-        BaseColor headerBg = new BaseColor(46, 16, 101);
-        BaseColor lightGray = new BaseColor(243, 244, 246);
-        
-        // Define fonts
-        Font titleFont = new Font(Font.FontFamily.HELVETICA, 28, Font.BOLD, BaseColor.WHITE);
-        Font subtitleFont = new Font(Font.FontFamily.HELVETICA, 12, Font.NORMAL, BaseColor.WHITE);
-        Font sectionFont = new Font(Font.FontFamily.HELVETICA, 16, Font.BOLD, primaryPurple);
-        Font headerFont = new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD, BaseColor.WHITE);
+        // Fonts
+        Font titleFont = new Font(Font.FontFamily.HELVETICA, 24, Font.BOLD, PRIMARY_COLOR);
+        Font headerFont = new Font(Font.FontFamily.HELVETICA, 11, Font.BOLD, BaseColor.WHITE);
+        Font sectionFont = new Font(Font.FontFamily.HELVETICA, 16, Font.BOLD, PRIMARY_COLOR);
         Font normalFont = new Font(Font.FontFamily.HELVETICA, 10, Font.NORMAL, BaseColor.DARK_GRAY);
         Font boldFont = new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD, BaseColor.DARK_GRAY);
-        Font incomeFont = new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD, incomeGreen);
-        Font expenseFont = new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD, expenseRed);
-        Font summaryTitleFont = new Font(Font.FontFamily.HELVETICA, 14, Font.BOLD, BaseColor.WHITE);
-        Font summaryValueFont = new Font(Font.FontFamily.HELVETICA, 20, Font.BOLD, BaseColor.WHITE);
+        Font smallFont = new Font(Font.FontFamily.HELVETICA, 8, Font.NORMAL, GRAY_COLOR);
         
-        // ===== HEADER SECTION =====
-        PdfPTable headerTable = new PdfPTable(1);
-        headerTable.setWidthPercentage(100);
+        // === HEADER SECTION ===
+        addReportHeader(document, user, titleFont, smallFont);
         
-        PdfPCell headerCell = new PdfPCell();
-        headerCell.setBackgroundColor(headerBg);
-        headerCell.setPadding(25);
-        headerCell.setBorder(Rectangle.NO_BORDER);
+        // Fetch all data
+        List<Transaction> transactions = transactionRepository.findByUser(user);
+        List<Budget> budgets = budgetRepository.findByUser(user);
+        List<Goal> goals = goalRepository.findByUser(user);
         
-        Paragraph titlePara = new Paragraph();
-        titlePara.add(new Chunk("BudgetWise", titleFont));
-        titlePara.add(new Chunk("\n"));
-        titlePara.add(new Chunk("Financial Report", new Font(Font.FontFamily.HELVETICA, 18, Font.NORMAL, lightPurple)));
-        titlePara.setAlignment(Element.ALIGN_CENTER);
-        headerCell.addElement(titlePara);
+        // === FINANCIAL SUMMARY SECTION ===
+        addFinancialSummary(document, transactions, sectionFont, normalFont, boldFont);
         
-        String exportDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMMM dd, yyyy 'at' HH:mm"));
-        Paragraph datePara = new Paragraph("\nGenerated on " + exportDate + " for " + data.get("userName"), subtitleFont);
-        datePara.setAlignment(Element.ALIGN_CENTER);
-        headerCell.addElement(datePara);
-        
-        headerTable.addCell(headerCell);
-        document.add(headerTable);
-        document.add(new Paragraph("\n"));
-        
-        // ===== SUMMARY SECTION =====
-        @SuppressWarnings("unchecked")
-        List<Transaction> transactions = data.containsKey("transactions") ? 
-            (List<Transaction>) data.get("transactions") : new ArrayList<>();
-        @SuppressWarnings("unchecked")
-        List<Budget> budgets = data.containsKey("budgets") ? 
-            (List<Budget>) data.get("budgets") : new ArrayList<>();
-        @SuppressWarnings("unchecked")
-        List<Goal> goals = data.containsKey("goals") ? 
-            (List<Goal>) data.get("goals") : new ArrayList<>();
-        
-        double totalIncome = transactions.stream()
-            .filter(t -> "income".equalsIgnoreCase(t.getType()))
-            .mapToDouble(Transaction::getAmount)
-            .sum();
-        double totalExpenses = transactions.stream()
-            .filter(t -> "expense".equalsIgnoreCase(t.getType()))
-            .mapToDouble(Transaction::getAmount)
-            .sum();
-        double balance = totalIncome - totalExpenses;
-        
-        // Summary Cards
-        PdfPTable summaryTable = new PdfPTable(3);
-        summaryTable.setWidthPercentage(100);
-        summaryTable.setSpacingBefore(10);
-        summaryTable.setSpacingAfter(20);
-        
-        // Income Card
-        PdfPCell incomeCard = createSummaryCard("Total Income", String.format("₹%.2f", totalIncome), incomeGreen, summaryTitleFont, summaryValueFont);
-        summaryTable.addCell(incomeCard);
-        
-        // Expenses Card
-        PdfPCell expenseCard = createSummaryCard("Total Expenses", String.format("₹%.2f", totalExpenses), expenseRed, summaryTitleFont, summaryValueFont);
-        summaryTable.addCell(expenseCard);
-        
-        // Balance Card
-        BaseColor balanceColor = balance >= 0 ? incomeGreen : expenseRed;
-        PdfPCell balanceCard = createSummaryCard("Net Balance", String.format("₹%.2f", balance), balanceColor, summaryTitleFont, summaryValueFont);
-        summaryTable.addCell(balanceCard);
-        
-        document.add(summaryTable);
-        
-        // ===== SPENDING BY CATEGORY (Bar Chart Representation) =====
-        if (!transactions.isEmpty()) {
-            document.add(createSectionHeader("📊 Spending Analysis by Category", sectionFont, primaryPurple));
-            document.add(new Paragraph("\n"));
-            
-            // Calculate category totals for expenses
-            Map<String, Double> categoryTotals = new HashMap<>();
-            for (Transaction t : transactions) {
-                if ("expense".equalsIgnoreCase(t.getType())) {
-                    categoryTotals.merge(t.getCategory(), t.getAmount(), Double::sum);
-                }
-            }
-            
-            if (!categoryTotals.isEmpty()) {
-                double maxAmount = categoryTotals.values().stream().mapToDouble(Double::doubleValue).max().orElse(1);
-                
-                PdfPTable chartTable = new PdfPTable(3);
-                chartTable.setWidthPercentage(100);
-                chartTable.setWidths(new float[]{25, 55, 20});
-                
-                for (Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
-                    // Category name
-                    PdfPCell catCell = new PdfPCell(new Phrase(entry.getKey(), boldFont));
-                    catCell.setBorder(Rectangle.NO_BORDER);
-                    catCell.setPadding(8);
-                    catCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-                    chartTable.addCell(catCell);
-                    
-                    // Bar
-                    PdfPCell barCell = new PdfPCell();
-                    barCell.setBorder(Rectangle.NO_BORDER);
-                    barCell.setPadding(8);
-                    
-                    float barWidth = (float) (entry.getValue() / maxAmount * 100);
-                    PdfPTable barTable = new PdfPTable(2);
-                    barTable.setWidthPercentage(100);
-                    barTable.setWidths(new float[]{barWidth, 100 - barWidth});
-                    
-                    PdfPCell filledBar = new PdfPCell();
-                    filledBar.setBackgroundColor(primaryPurple);
-                    filledBar.setBorder(Rectangle.NO_BORDER);
-                    filledBar.setFixedHeight(20);
-                    barTable.addCell(filledBar);
-                    
-                    PdfPCell emptyBar = new PdfPCell();
-                    emptyBar.setBackgroundColor(lightGray);
-                    emptyBar.setBorder(Rectangle.NO_BORDER);
-                    emptyBar.setFixedHeight(20);
-                    barTable.addCell(emptyBar);
-                    
-                    barCell.addElement(barTable);
-                    chartTable.addCell(barCell);
-                    
-                    // Amount
-                    PdfPCell amountCell = new PdfPCell(new Phrase(String.format("₹%.2f", entry.getValue()), normalFont));
-                    amountCell.setBorder(Rectangle.NO_BORDER);
-                    amountCell.setPadding(8);
-                    amountCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-                    amountCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-                    chartTable.addCell(amountCell);
-                }
-                
-                document.add(chartTable);
-            }
-            document.add(new Paragraph("\n"));
+        // === EXPENSE PIE CHART ===
+        if (options.getOrDefault("transactions", false) && !transactions.isEmpty()) {
+            addExpensePieChart(document, writer, transactions, sectionFont, normalFont, smallFont);
         }
         
-        // ===== TRANSACTIONS TABLE =====
-        if (data.containsKey("transactions") && !transactions.isEmpty()) {
-            document.add(createSectionHeader("💳 Transaction History", sectionFont, primaryPurple));
-            document.add(new Paragraph("\n"));
-            
-            PdfPTable transTable = new PdfPTable(5);
-            transTable.setWidthPercentage(100);
-            transTable.setWidths(new float[]{20, 25, 15, 20, 20});
-            
-            // Table headers
-            String[] transHeaders = {"Date", "Description", "Type", "Category", "Amount"};
-            for (String header : transHeaders) {
-                PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
-                cell.setBackgroundColor(primaryPurple);
-                cell.setPadding(10);
-                cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-                cell.setBorderColor(primaryPurple);
-                transTable.addCell(cell);
-            }
-            
-            // Table rows
-            boolean alternate = false;
-            for (Transaction t : transactions) {
-                BaseColor rowColor = alternate ? lightGray : BaseColor.WHITE;
-                
-                addTableCell(transTable, t.getDate().toString(), normalFont, rowColor);
-                addTableCell(transTable, t.getDescription(), normalFont, rowColor);
-                addTableCell(transTable, t.getType(), normalFont, rowColor);
-                addTableCell(transTable, t.getCategory(), normalFont, rowColor);
-                
-                Font amtFont = "income".equalsIgnoreCase(t.getType()) ? incomeFont : expenseFont;
-                String amtPrefix = "income".equalsIgnoreCase(t.getType()) ? "+" : "-";
-                PdfPCell amtCell = new PdfPCell(new Phrase(amtPrefix + "₹" + t.getAmount(), amtFont));
-                amtCell.setBackgroundColor(rowColor);
-                amtCell.setPadding(8);
-                amtCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-                amtCell.setBorderColor(lightGray);
-                transTable.addCell(amtCell);
-                
-                alternate = !alternate;
-            }
-            
-            document.add(transTable);
-            document.add(new Paragraph("\n"));
+        // === INCOME VS EXPENSE COMPARISON ===
+        if (options.getOrDefault("transactions", false) && !transactions.isEmpty()) {
+            addIncomeExpenseComparison(document, transactions, sectionFont, normalFont);
         }
         
-        // ===== BUDGETS TABLE =====
-        if (data.containsKey("budgets") && !budgets.isEmpty()) {
-            document.add(createSectionHeader("💰 Budget Overview", sectionFont, primaryPurple));
-            document.add(new Paragraph("\n"));
-            
-            PdfPTable budgetTable = new PdfPTable(4);
-            budgetTable.setWidthPercentage(100);
-            budgetTable.setWidths(new float[]{30, 25, 25, 20});
-            
-            String[] budgetHeaders = {"Category", "Budget Amount", "Period", "Status"};
-            for (String header : budgetHeaders) {
-                PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
-                cell.setBackgroundColor(primaryPurple);
-                cell.setPadding(10);
-                cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-                cell.setBorderColor(primaryPurple);
-                budgetTable.addCell(cell);
-            }
-            
-            boolean alternate = false;
-            for (Budget b : budgets) {
-                BaseColor rowColor = alternate ? lightGray : BaseColor.WHITE;
-                
-                addTableCell(budgetTable, b.getCategory(), normalFont, rowColor);
-                addTableCell(budgetTable, "₹" + b.getAmount(), boldFont, rowColor);
-                addTableCell(budgetTable, b.getStartDate() + " to " + b.getEndDate(), normalFont, rowColor);
-                
-                // Calculate spent amount for this budget category
-                double spent = transactions.stream()
-                    .filter(t -> "expense".equalsIgnoreCase(t.getType()) && b.getCategory().equalsIgnoreCase(t.getCategory()))
-                    .mapToDouble(Transaction::getAmount)
-                    .sum();
-                double percentage = b.getAmount() > 0 ? (spent / b.getAmount()) * 100 : 0;
-                
-                String status = percentage < 50 ? "🟢 On Track" : percentage < 80 ? "🟡 Warning" : "🔴 Over Budget";
-                PdfPCell statusCell = new PdfPCell(new Phrase(String.format("%.0f%% - %s", percentage, status), normalFont));
-                statusCell.setBackgroundColor(rowColor);
-                statusCell.setPadding(8);
-                statusCell.setHorizontalAlignment(Element.ALIGN_CENTER);
-                statusCell.setBorderColor(lightGray);
-                budgetTable.addCell(statusCell);
-                
-                alternate = !alternate;
-            }
-            
-            document.add(budgetTable);
-            document.add(new Paragraph("\n"));
+        // === TRANSACTIONS TABLE ===
+        if (options.getOrDefault("transactions", false)) {
+            addTransactionsSection(document, transactions, sectionFont, headerFont, normalFont, smallFont);
         }
         
-        // ===== GOALS TABLE =====
-        if (data.containsKey("goals") && !goals.isEmpty()) {
-            document.add(createSectionHeader("🎯 Financial Goals", sectionFont, primaryPurple));
-            document.add(new Paragraph("\n"));
-            
-            PdfPTable goalsTable = new PdfPTable(5);
-            goalsTable.setWidthPercentage(100);
-            goalsTable.setWidths(new float[]{25, 20, 20, 15, 20});
-            
-            String[] goalHeaders = {"Goal Name", "Target", "Current", "Priority", "Progress"};
-            for (String header : goalHeaders) {
-                PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
-                cell.setBackgroundColor(primaryPurple);
-                cell.setPadding(10);
-                cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-                cell.setBorderColor(primaryPurple);
-                goalsTable.addCell(cell);
-            }
-            
-            boolean alternate = false;
-            for (Goal g : goals) {
-                BaseColor rowColor = alternate ? lightGray : BaseColor.WHITE;
-                
-                addTableCell(goalsTable, g.getGoalName(), boldFont, rowColor);
-                addTableCell(goalsTable, "₹" + g.getTargetAmount(), normalFont, rowColor);
-                addTableCell(goalsTable, "₹" + g.getCurrentAmount(), normalFont, rowColor);
-                
-                // Priority with color indicator
-                String priorityEmoji = "HIGH".equalsIgnoreCase(g.getPriority()) ? "🔴" : 
-                                       "MEDIUM".equalsIgnoreCase(g.getPriority()) ? "🟡" : "🟢";
-                addTableCell(goalsTable, priorityEmoji + " " + g.getPriority(), normalFont, rowColor);
-                
-                // Progress bar representation
-                double progress = g.getTargetAmount() > 0 ? (g.getCurrentAmount() / g.getTargetAmount()) * 100 : 0;
-                PdfPCell progressCell = new PdfPCell();
-                progressCell.setBackgroundColor(rowColor);
-                progressCell.setPadding(8);
-                progressCell.setBorderColor(lightGray);
-                
-                PdfPTable progressBar = new PdfPTable(2);
-                progressBar.setWidthPercentage(100);
-                float progressWidth = (float) Math.min(progress, 100);
-                progressBar.setWidths(new float[]{progressWidth, 100 - progressWidth});
-                
-                PdfPCell filledProgress = new PdfPCell(new Phrase(String.format("%.0f%%", progress), 
-                    new Font(Font.FontFamily.HELVETICA, 8, Font.BOLD, BaseColor.WHITE)));
-                filledProgress.setBackgroundColor(incomeGreen);
-                filledProgress.setBorder(Rectangle.NO_BORDER);
-                filledProgress.setFixedHeight(18);
-                filledProgress.setHorizontalAlignment(Element.ALIGN_CENTER);
-                filledProgress.setVerticalAlignment(Element.ALIGN_MIDDLE);
-                progressBar.addCell(filledProgress);
-                
-                PdfPCell emptyProgress = new PdfPCell();
-                emptyProgress.setBackgroundColor(lightGray);
-                emptyProgress.setBorder(Rectangle.NO_BORDER);
-                emptyProgress.setFixedHeight(18);
-                progressBar.addCell(emptyProgress);
-                
-                progressCell.addElement(progressBar);
-                goalsTable.addCell(progressCell);
-                
-                alternate = !alternate;
-            }
-            
-            document.add(goalsTable);
+        // === BUDGETS SECTION ===
+        if (options.getOrDefault("budgets", false)) {
+            addBudgetsSection(document, budgets, transactions, sectionFont, headerFont, normalFont, boldFont);
         }
         
-        // ===== FOOTER =====
-        document.add(new Paragraph("\n\n"));
-        PdfPTable footerTable = new PdfPTable(1);
-        footerTable.setWidthPercentage(100);
+        // === GOALS SECTION ===
+        if (options.getOrDefault("goals", false)) {
+            addGoalsSection(document, goals, sectionFont, headerFont, normalFont, boldFont);
+        }
         
-        PdfPCell footerCell = new PdfPCell();
-        footerCell.setBackgroundColor(lightGray);
-        footerCell.setPadding(15);
-        footerCell.setBorder(Rectangle.NO_BORDER);
-        
-        Font footerFont = new Font(Font.FontFamily.HELVETICA, 9, Font.NORMAL, BaseColor.GRAY);
-        Paragraph footerText = new Paragraph("Generated by BudgetWise AI Financial Advisor\n" +
-            "This report is for personal use only. Keep your financial data secure.", footerFont);
-        footerText.setAlignment(Element.ALIGN_CENTER);
-        footerCell.addElement(footerText);
-        
-        footerTable.addCell(footerCell);
-        document.add(footerTable);
+        // === FOOTER ===
+        addReportFooter(document, smallFont);
         
         document.close();
         return baos.toByteArray();
     }
     
-    private PdfPCell createSummaryCard(String title, String value, BaseColor bgColor, Font titleFont, Font valueFont) {
-        PdfPCell card = new PdfPCell();
-        card.setBackgroundColor(bgColor);
-        card.setPadding(20);
-        card.setBorder(Rectangle.NO_BORDER);
-        card.setHorizontalAlignment(Element.ALIGN_CENTER);
+    private void addReportHeader(Document document, User user, Font titleFont, Font smallFont) throws DocumentException {
+        // Logo/Title area
+        PdfPTable headerTable = new PdfPTable(2);
+        headerTable.setWidthPercentage(100);
+        headerTable.setWidths(new float[]{70, 30});
         
-        Paragraph titlePara = new Paragraph(title, titleFont);
-        titlePara.setAlignment(Element.ALIGN_CENTER);
-        card.addElement(titlePara);
+        // Title cell
+        PdfPCell titleCell = new PdfPCell();
+        titleCell.setBorder(Rectangle.NO_BORDER);
+        titleCell.setPaddingBottom(10);
         
-        Paragraph valuePara = new Paragraph(value, valueFont);
-        valuePara.setAlignment(Element.ALIGN_CENTER);
-        card.addElement(valuePara);
+        Paragraph title = new Paragraph("BudgetWise", titleFont);
+        titleCell.addElement(title);
         
-        return card;
+        Paragraph subtitle = new Paragraph("Personal Financial Report", 
+            new Font(Font.FontFamily.HELVETICA, 12, Font.NORMAL, GRAY_COLOR));
+        titleCell.addElement(subtitle);
+        headerTable.addCell(titleCell);
+        
+        // Info cell
+        PdfPCell infoCell = new PdfPCell();
+        infoCell.setBorder(Rectangle.NO_BORDER);
+        infoCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        infoCell.setPaddingBottom(10);
+        
+        Paragraph dateInfo = new Paragraph();
+        dateInfo.setAlignment(Element.ALIGN_RIGHT);
+        dateInfo.add(new Chunk("Generated: " + LocalDateTime.now().format(
+            DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' hh:mm a")), smallFont));
+        dateInfo.add(Chunk.NEWLINE);
+        dateInfo.add(new Chunk("User: " + user.getUsername(), smallFont));
+        if (user.getEmail() != null) {
+            dateInfo.add(Chunk.NEWLINE);
+            dateInfo.add(new Chunk(user.getEmail(), smallFont));
+        }
+        infoCell.addElement(dateInfo);
+        headerTable.addCell(infoCell);
+        
+        document.add(headerTable);
+        
+        // Divider line
+        PdfPTable divider = new PdfPTable(1);
+        divider.setWidthPercentage(100);
+        PdfPCell dividerCell = new PdfPCell();
+        dividerCell.setBorder(Rectangle.NO_BORDER);
+        dividerCell.setBorderWidthBottom(2);
+        dividerCell.setBorderColorBottom(PRIMARY_COLOR);
+        dividerCell.setPaddingBottom(10);
+        divider.addCell(dividerCell);
+        document.add(divider);
+        document.add(Chunk.NEWLINE);
     }
     
-    private Paragraph createSectionHeader(String title, Font font, BaseColor underlineColor) {
-        Paragraph p = new Paragraph(title, font);
-        p.setSpacingBefore(15);
-        p.setSpacingAfter(5);
-        return p;
+    private void addFinancialSummary(Document document, List<Transaction> transactions, 
+            Font sectionFont, Font normalFont, Font boldFont) throws DocumentException {
+        
+        BigDecimal totalIncome = BigDecimal.ZERO;
+        BigDecimal totalExpense = BigDecimal.ZERO;
+        
+        for (Transaction t : transactions) {
+            if ("INCOME".equalsIgnoreCase(t.getType())) {
+                totalIncome = totalIncome.add(t.getAmount());
+            } else {
+                totalExpense = totalExpense.add(t.getAmount());
+            }
+        }
+        
+        BigDecimal netBalance = totalIncome.subtract(totalExpense);
+        BigDecimal savingsRate = totalIncome.compareTo(BigDecimal.ZERO) > 0 
+            ? netBalance.multiply(BigDecimal.valueOf(100)).divide(totalIncome, 1, RoundingMode.HALF_UP)
+            : BigDecimal.ZERO;
+        
+        // Summary cards
+        PdfPTable summaryTable = new PdfPTable(4);
+        summaryTable.setWidthPercentage(100);
+        summaryTable.setSpacingBefore(10);
+        summaryTable.setSpacingAfter(20);
+        
+        // Income Card
+        addSummaryCard(summaryTable, "Total Income", "$" + formatAmount(totalIncome), SECONDARY_COLOR);
+        
+        // Expense Card
+        addSummaryCard(summaryTable, "Total Expenses", "$" + formatAmount(totalExpense), DANGER_COLOR);
+        
+        // Net Balance Card
+        BaseColor balanceColor = netBalance.compareTo(BigDecimal.ZERO) >= 0 ? SECONDARY_COLOR : DANGER_COLOR;
+        addSummaryCard(summaryTable, "Net Balance", "$" + formatAmount(netBalance), balanceColor);
+        
+        // Savings Rate Card
+        addSummaryCard(summaryTable, "Savings Rate", savingsRate + "%", PRIMARY_COLOR);
+        
+        document.add(summaryTable);
+    }
+    
+    private void addSummaryCard(PdfPTable table, String label, String value, BaseColor color) {
+        PdfPCell cell = new PdfPCell();
+        cell.setBorder(Rectangle.BOX);
+        cell.setBorderColor(LIGHT_GRAY);
+        cell.setBorderWidth(1);
+        cell.setPadding(12);
+        cell.setBackgroundColor(BaseColor.WHITE);
+        
+        Paragraph content = new Paragraph();
+        content.add(new Chunk(label + "\n", new Font(Font.FontFamily.HELVETICA, 9, Font.NORMAL, GRAY_COLOR)));
+        content.add(new Chunk(value, new Font(Font.FontFamily.HELVETICA, 16, Font.BOLD, color)));
+        
+        cell.addElement(content);
+        table.addCell(cell);
+    }
+    
+    private void addExpensePieChart(Document document, PdfWriter writer, List<Transaction> transactions,
+            Font sectionFont, Font normalFont, Font smallFont) throws DocumentException {
+        
+        // Calculate expenses by category
+        Map<String, BigDecimal> expensesByCategory = new LinkedHashMap<>();
+        BigDecimal totalExpenses = BigDecimal.ZERO;
+        
+        for (Transaction t : transactions) {
+            if ("EXPENSE".equalsIgnoreCase(t.getType())) {
+                String category = t.getCategory() != null ? t.getCategory() : "Other";
+                expensesByCategory.merge(category, t.getAmount(), BigDecimal::add);
+                totalExpenses = totalExpenses.add(t.getAmount());
+            }
+        }
+        
+        if (expensesByCategory.isEmpty() || totalExpenses.compareTo(BigDecimal.ZERO) == 0) {
+            return;
+        }
+        
+        // Sort by amount descending
+        List<Map.Entry<String, BigDecimal>> sortedCategories = expensesByCategory.entrySet()
+            .stream()
+            .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
+            .collect(Collectors.toList());
+        
+        // Section title
+        Paragraph chartTitle = new Paragraph("Expense Breakdown by Category", sectionFont);
+        chartTitle.setSpacingBefore(15);
+        chartTitle.setSpacingAfter(5);
+        document.add(chartTitle);
+        
+        // Get current vertical position for pie chart
+        float currentY = writer.getVerticalPosition(true);
+        
+        // Draw the actual circular pie chart
+        PdfContentByte canvas = writer.getDirectContent();
+        float centerX = 150; // X position of pie chart center
+        float centerY = currentY - 90; // Y position (below current position)
+        float radius = 70; // Pie chart radius
+        
+        // Draw pie slices
+        float startAngle = 0;
+        int colorIndex = 0;
+        BigDecimal finalTotalExpenses = totalExpenses;
+        
+        for (Map.Entry<String, BigDecimal> entry : sortedCategories) {
+            if (colorIndex >= 10) break;
+            
+            BaseColor color = CHART_COLORS[colorIndex % CHART_COLORS.length];
+            float sweepAngle = entry.getValue().multiply(BigDecimal.valueOf(360))
+                .divide(finalTotalExpenses, 2, RoundingMode.HALF_UP).floatValue();
+            
+            // Draw pie slice
+            canvas.setColorFill(color);
+            canvas.setColorStroke(BaseColor.WHITE);
+            canvas.setLineWidth(1);
+            
+            // Draw arc segment
+            drawPieSlice(canvas, centerX, centerY, radius, startAngle, sweepAngle, color);
+            
+            startAngle += sweepAngle;
+            colorIndex++;
+        }
+        
+        // Draw white center circle for donut effect
+        canvas.setColorFill(BaseColor.WHITE);
+        canvas.circle(centerX, centerY, radius * 0.45f);
+        canvas.fill();
+        
+        // Add "Total" text in center of donut
+        try {
+            BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.WINANSI, false);
+            canvas.beginText();
+            canvas.setFontAndSize(bf, 8);
+            canvas.setColorFill(GRAY_COLOR);
+            String totalLabel = "TOTAL";
+            float labelWidth = bf.getWidthPoint(totalLabel, 8);
+            canvas.setTextMatrix(centerX - labelWidth/2, centerY + 8);
+            canvas.showText(totalLabel);
+            canvas.endText();
+            
+            canvas.beginText();
+            canvas.setFontAndSize(bf, 11);
+            canvas.setColorFill(BaseColor.DARK_GRAY);
+            String totalText = "$" + formatAmount(totalExpenses);
+            float textWidth = bf.getWidthPoint(totalText, 11);
+            canvas.setTextMatrix(centerX - textWidth/2, centerY - 6);
+            canvas.showText(totalText);
+            canvas.endText();
+        } catch (Exception e) {
+            // Ignore font errors
+        }
+        
+        // Create space for the pie chart
+        Paragraph spacer = new Paragraph();
+        spacer.setSpacingAfter(100);
+        document.add(spacer);
+        
+        // Add legend below the pie chart
+        PdfPTable legendTable = new PdfPTable(4);
+        legendTable.setWidthPercentage(100);
+        legendTable.setWidths(new float[]{5, 30, 35, 30});
+        legendTable.setSpacingBefore(10);
+        
+        colorIndex = 0;
+        for (Map.Entry<String, BigDecimal> entry : sortedCategories) {
+            if (colorIndex >= 10) break;
+            
+            BaseColor color = CHART_COLORS[colorIndex % CHART_COLORS.length];
+            BigDecimal percentage = entry.getValue().multiply(BigDecimal.valueOf(100))
+                .divide(finalTotalExpenses, 1, RoundingMode.HALF_UP);
+            
+            // Color indicator
+            PdfPCell colorCell = new PdfPCell();
+            colorCell.setBackgroundColor(color);
+            colorCell.setBorder(Rectangle.NO_BORDER);
+            colorCell.setFixedHeight(12);
+            legendTable.addCell(colorCell);
+            
+            // Category name
+            PdfPCell nameCell = new PdfPCell(new Phrase(entry.getKey(), normalFont));
+            nameCell.setBorder(Rectangle.NO_BORDER);
+            nameCell.setPaddingLeft(8);
+            nameCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            legendTable.addCell(nameCell);
+            
+            // Amount
+            PdfPCell amountCell = new PdfPCell(new Phrase("$" + formatAmount(entry.getValue()), normalFont));
+            amountCell.setBorder(Rectangle.NO_BORDER);
+            amountCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            amountCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            legendTable.addCell(amountCell);
+            
+            // Percentage
+            PdfPCell percCell = new PdfPCell(new Phrase(percentage + "%", 
+                new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD, color)));
+            percCell.setBorder(Rectangle.NO_BORDER);
+            percCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            percCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            legendTable.addCell(percCell);
+            
+            colorIndex++;
+        }
+        
+        document.add(legendTable);
+        document.add(Chunk.NEWLINE);
+    }
+    
+    private void drawPieSlice(PdfContentByte canvas, float cx, float cy, float r, 
+            float startAngle, float sweepAngle, BaseColor color) {
+        canvas.setColorFill(color);
+        canvas.setColorStroke(BaseColor.WHITE);
+        canvas.setLineWidth(2);
+        
+        // Move to center
+        canvas.moveTo(cx, cy);
+        
+        // Draw arc
+        float startRad = (float) Math.toRadians(startAngle);
+        float endRad = (float) Math.toRadians(startAngle + sweepAngle);
+        
+        // Line to start of arc
+        float startX = cx + r * (float) Math.cos(startRad);
+        float startY = cy + r * (float) Math.sin(startRad);
+        canvas.lineTo(startX, startY);
+        
+        // Draw arc using bezier curves (approximation)
+        int segments = Math.max(1, (int) Math.ceil(sweepAngle / 45));
+        float anglePerSegment = sweepAngle / segments;
+        
+        float currentAngle = startAngle;
+        for (int i = 0; i < segments; i++) {
+            float nextAngle = currentAngle + anglePerSegment;
+            float currRad = (float) Math.toRadians(currentAngle);
+            float nextRad = (float) Math.toRadians(nextAngle);
+            float midRad = (float) Math.toRadians(currentAngle + anglePerSegment / 2);
+            
+            // Calculate control point for bezier curve
+            float k = (float) (4.0 / 3.0 * Math.tan(Math.toRadians(anglePerSegment / 4)));
+            
+            float x1 = cx + r * (float) Math.cos(currRad);
+            float y1 = cy + r * (float) Math.sin(currRad);
+            float x4 = cx + r * (float) Math.cos(nextRad);
+            float y4 = cy + r * (float) Math.sin(nextRad);
+            
+            float x2 = x1 - k * r * (float) Math.sin(currRad);
+            float y2 = y1 + k * r * (float) Math.cos(currRad);
+            float x3 = x4 + k * r * (float) Math.sin(nextRad);
+            float y3 = y4 - k * r * (float) Math.cos(nextRad);
+            
+            canvas.curveTo(x2, y2, x3, y3, x4, y4);
+            currentAngle = nextAngle;
+        }
+        
+        // Close path back to center
+        canvas.lineTo(cx, cy);
+        canvas.closePathFillStroke();
+    }
+    
+    private void addIncomeExpenseComparison(Document document, List<Transaction> transactions,
+            Font sectionFont, Font normalFont) throws DocumentException {
+        
+        // Calculate monthly breakdown
+        Map<String, BigDecimal[]> monthlyData = new TreeMap<>();
+        
+        for (Transaction t : transactions) {
+            if (t.getDate() == null) continue;
+            
+            String monthKey = t.getDate().format(DateTimeFormatter.ofPattern("yyyy-MM"));
+            monthlyData.putIfAbsent(monthKey, new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            
+            if ("INCOME".equalsIgnoreCase(t.getType())) {
+                monthlyData.get(monthKey)[0] = monthlyData.get(monthKey)[0].add(t.getAmount());
+            } else {
+                monthlyData.get(monthKey)[1] = monthlyData.get(monthKey)[1].add(t.getAmount());
+            }
+        }
+        
+        if (monthlyData.isEmpty()) return;
+        
+        // Section title
+        Paragraph title = new Paragraph("Monthly Income vs Expenses", sectionFont);
+        title.setSpacingBefore(15);
+        title.setSpacingAfter(10);
+        document.add(title);
+        
+        // Create comparison table
+        PdfPTable table = new PdfPTable(4);
+        table.setWidthPercentage(100);
+        table.setWidths(new float[]{25, 25, 25, 25});
+        
+        // Headers
+        String[] headers = {"Month", "Income", "Expenses", "Net"};
+        Font headerFont = new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD, BaseColor.WHITE);
+        for (String header : headers) {
+            PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
+            cell.setBackgroundColor(PRIMARY_COLOR);
+            cell.setPadding(8);
+            cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            table.addCell(cell);
+        }
+        
+        // Get last 6 months of data
+        List<String> recentMonths = new ArrayList<>(monthlyData.keySet());
+        int startIndex = Math.max(0, recentMonths.size() - 6);
+        
+        boolean alternate = false;
+        for (int i = startIndex; i < recentMonths.size(); i++) {
+            String month = recentMonths.get(i);
+            BigDecimal[] data = monthlyData.get(month);
+            BigDecimal net = data[0].subtract(data[1]);
+            
+            BaseColor rowColor = alternate ? LIGHT_GRAY : BaseColor.WHITE;
+            
+            // Month
+            LocalDate monthDate = LocalDate.parse(month + "-01");
+            addTableCell(table, monthDate.format(DateTimeFormatter.ofPattern("MMM yyyy")), normalFont, rowColor);
+            
+            // Income
+            PdfPCell incomeCell = new PdfPCell(new Phrase("$" + formatAmount(data[0]),
+                new Font(Font.FontFamily.HELVETICA, 10, Font.NORMAL, SECONDARY_COLOR)));
+            incomeCell.setBackgroundColor(rowColor);
+            incomeCell.setPadding(6);
+            incomeCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            table.addCell(incomeCell);
+            
+            // Expenses
+            PdfPCell expenseCell = new PdfPCell(new Phrase("$" + formatAmount(data[1]),
+                new Font(Font.FontFamily.HELVETICA, 10, Font.NORMAL, DANGER_COLOR)));
+            expenseCell.setBackgroundColor(rowColor);
+            expenseCell.setPadding(6);
+            expenseCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            table.addCell(expenseCell);
+            
+            // Net
+            BaseColor netColor = net.compareTo(BigDecimal.ZERO) >= 0 ? SECONDARY_COLOR : DANGER_COLOR;
+            String netPrefix = net.compareTo(BigDecimal.ZERO) >= 0 ? "+" : "";
+            PdfPCell netCell = new PdfPCell(new Phrase(netPrefix + "$" + formatAmount(net),
+                new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD, netColor)));
+            netCell.setBackgroundColor(rowColor);
+            netCell.setPadding(6);
+            netCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            table.addCell(netCell);
+            
+            alternate = !alternate;
+        }
+        
+        document.add(table);
+        document.add(Chunk.NEWLINE);
+    }
+    
+    private void addTransactionsSection(Document document, List<Transaction> transactions,
+            Font sectionFont, Font headerFont, Font normalFont, Font smallFont) throws DocumentException {
+        
+        document.newPage();
+        
+        Paragraph title = new Paragraph("Transaction History", sectionFont);
+        title.setSpacingAfter(15);
+        document.add(title);
+        
+        // Recent transactions table
+        PdfPTable table = new PdfPTable(6);
+        table.setWidthPercentage(100);
+        table.setWidths(new float[]{15, 25, 15, 12, 18, 15});
+        
+        // Header
+        String[] headers = {"Date", "Description", "Category", "Type", "Amount", "Method"};
+        for (String header : headers) {
+            PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
+            cell.setBackgroundColor(PRIMARY_COLOR);
+            cell.setPadding(8);
+            cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            table.addCell(cell);
+        }
+        
+        // Sort by date descending
+        List<Transaction> sortedTransactions = transactions.stream()
+            .sorted((a, b) -> {
+                if (b.getDate() == null) return -1;
+                if (a.getDate() == null) return 1;
+                return b.getDate().compareTo(a.getDate());
+            })
+            .limit(50) // Limit to most recent 50
+            .collect(Collectors.toList());
+        
+        boolean alternate = false;
+        for (Transaction t : sortedTransactions) {
+            BaseColor rowColor = alternate ? LIGHT_GRAY : BaseColor.WHITE;
+            
+            addTableCell(table, t.getDate() != null ? 
+                t.getDate().format(DateTimeFormatter.ofPattern("MMM dd, yyyy")) : "-", normalFont, rowColor);
+            addTableCell(table, truncate(t.getDescription(), 25), normalFont, rowColor);
+            addTableCell(table, t.getCategory() != null ? truncate(t.getCategory(), 12) : "-", normalFont, rowColor);
+            
+            // Type with color
+            PdfPCell typeCell = new PdfPCell(new Phrase(t.getType(), 
+                new Font(Font.FontFamily.HELVETICA, 9, Font.BOLD, 
+                    "INCOME".equalsIgnoreCase(t.getType()) ? SECONDARY_COLOR : DANGER_COLOR)));
+            typeCell.setBackgroundColor(rowColor);
+            typeCell.setPadding(6);
+            typeCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            table.addCell(typeCell);
+            
+            // Amount with sign
+            String amountStr = ("INCOME".equalsIgnoreCase(t.getType()) ? "+" : "-") + 
+                "$" + formatAmount(t.getAmount());
+            PdfPCell amountCell = new PdfPCell(new Phrase(amountStr, 
+                new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD,
+                    "INCOME".equalsIgnoreCase(t.getType()) ? SECONDARY_COLOR : DANGER_COLOR)));
+            amountCell.setBackgroundColor(rowColor);
+            amountCell.setPadding(6);
+            amountCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            table.addCell(amountCell);
+            
+            addTableCell(table, t.getPaymentMethod() != null ? t.getPaymentMethod() : "-", normalFont, rowColor);
+            
+            alternate = !alternate;
+        }
+        
+        document.add(table);
+        
+        if (transactions.size() > 50) {
+            Paragraph note = new Paragraph("Showing 50 most recent transactions out of " + 
+                transactions.size() + " total.", smallFont);
+            note.setSpacingBefore(5);
+            document.add(note);
+        }
+    }
+    
+    private void addBudgetsSection(Document document, List<Budget> budgets, List<Transaction> transactions,
+            Font sectionFont, Font headerFont, Font normalFont, Font boldFont) throws DocumentException {
+        
+        if (budgets.isEmpty()) {
+            return;
+        }
+        
+        document.newPage();
+        
+        Paragraph title = new Paragraph("Budget Overview", sectionFont);
+        title.setSpacingAfter(15);
+        document.add(title);
+        
+        // Calculate spending per category for current month
+        Map<String, BigDecimal> spendingByCategory = new HashMap<>();
+        LocalDate now = LocalDate.now();
+        
+        for (Transaction t : transactions) {
+            if ("EXPENSE".equalsIgnoreCase(t.getType()) && t.getDate() != null) {
+                LocalDate txDate = t.getDate().toLocalDate();
+                if (txDate.getMonth() == now.getMonth() && txDate.getYear() == now.getYear()) {
+                    spendingByCategory.merge(t.getCategory(), t.getAmount(), BigDecimal::add);
+                }
+            }
+        }
+        
+        PdfPTable table = new PdfPTable(5);
+        table.setWidthPercentage(100);
+        table.setWidths(new float[]{25, 18, 18, 18, 21});
+        
+        // Header
+        String[] headers = {"Category", "Budget", "Spent", "Remaining", "Status"};
+        for (String header : headers) {
+            PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
+            cell.setBackgroundColor(PRIMARY_COLOR);
+            cell.setPadding(8);
+            cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            table.addCell(cell);
+        }
+        
+        boolean alternate = false;
+        for (Budget b : budgets) {
+            BigDecimal spent = spendingByCategory.getOrDefault(b.getCategory(), BigDecimal.ZERO);
+            BigDecimal remaining = b.getAmount().subtract(spent);
+            double percentUsed = b.getAmount().compareTo(BigDecimal.ZERO) > 0 
+                ? spent.multiply(BigDecimal.valueOf(100)).divide(b.getAmount(), 0, RoundingMode.HALF_UP).doubleValue()
+                : 0;
+            
+            BaseColor rowColor = alternate ? LIGHT_GRAY : BaseColor.WHITE;
+            
+            addTableCell(table, b.getCategory(), boldFont, rowColor);
+            addTableCell(table, "$" + formatAmount(b.getAmount()), normalFont, rowColor);
+            addTableCell(table, "$" + formatAmount(spent), normalFont, rowColor);
+            
+            // Remaining with color
+            BaseColor remainingColor = remaining.compareTo(BigDecimal.ZERO) >= 0 ? SECONDARY_COLOR : DANGER_COLOR;
+            PdfPCell remCell = new PdfPCell(new Phrase("$" + formatAmount(remaining), 
+                new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD, remainingColor)));
+            remCell.setBackgroundColor(rowColor);
+            remCell.setPadding(6);
+            remCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            table.addCell(remCell);
+            
+            // Status indicator
+            String status;
+            BaseColor statusColor;
+            if (percentUsed >= 100) {
+                status = "Over Budget";
+                statusColor = DANGER_COLOR;
+            } else if (percentUsed >= 80) {
+                status = "Warning";
+                statusColor = ACCENT_COLOR;
+            } else {
+                status = "On Track";
+                statusColor = SECONDARY_COLOR;
+            }
+            
+            PdfPCell statusCell = new PdfPCell(new Phrase(status, 
+                new Font(Font.FontFamily.HELVETICA, 9, Font.BOLD, statusColor)));
+            statusCell.setBackgroundColor(rowColor);
+            statusCell.setPadding(6);
+            statusCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            table.addCell(statusCell);
+            
+            alternate = !alternate;
+        }
+        
+        document.add(table);
+    }
+    
+    private void addGoalsSection(Document document, List<Goal> goals,
+            Font sectionFont, Font headerFont, Font normalFont, Font boldFont) throws DocumentException {
+        
+        if (goals.isEmpty()) {
+            return;
+        }
+        
+        Paragraph title = new Paragraph("Savings Goals", sectionFont);
+        title.setSpacingBefore(25);
+        title.setSpacingAfter(15);
+        document.add(title);
+        
+        for (Goal g : goals) {
+            PdfPTable goalCard = new PdfPTable(1);
+            goalCard.setWidthPercentage(100);
+            goalCard.setSpacingAfter(10);
+            
+            PdfPCell card = new PdfPCell();
+            card.setBorder(Rectangle.BOX);
+            card.setBorderColor(LIGHT_GRAY);
+            card.setBorderWidth(1);
+            card.setPadding(12);
+            
+            // Goal name and category
+            Paragraph goalHeader = new Paragraph();
+            goalHeader.add(new Chunk(g.getGoalName(), boldFont));
+            goalHeader.add(new Chunk("  •  " + g.getCategory(), 
+                new Font(Font.FontFamily.HELVETICA, 9, Font.NORMAL, GRAY_COLOR)));
+            card.addElement(goalHeader);
+            
+            // Progress calculation
+            double progress = g.getTargetAmount() > 0 
+                ? (g.getCurrentAmount() / g.getTargetAmount()) * 100 : 0;
+            progress = Math.min(progress, 100);
+            
+            // Progress bar
+            float filledWidth = Math.max((float) progress, 1);
+            float emptyWidth = Math.max(100 - (float) progress, 1);
+            
+            PdfPTable progressBar = new PdfPTable(2);
+            progressBar.setWidthPercentage(100);
+            progressBar.setWidths(new float[]{filledWidth, emptyWidth});
+            progressBar.setSpacingBefore(8);
+            
+            PdfPCell filledCell = new PdfPCell();
+            filledCell.setBackgroundColor(progress >= 100 ? SECONDARY_COLOR : PRIMARY_COLOR);
+            filledCell.setBorder(Rectangle.NO_BORDER);
+            filledCell.setFixedHeight(8);
+            progressBar.addCell(filledCell);
+            
+            PdfPCell emptyCell = new PdfPCell();
+            emptyCell.setBackgroundColor(LIGHT_GRAY);
+            emptyCell.setBorder(Rectangle.NO_BORDER);
+            emptyCell.setFixedHeight(8);
+            progressBar.addCell(emptyCell);
+            
+            card.addElement(progressBar);
+            
+            // Amount details
+            Paragraph amounts = new Paragraph();
+            amounts.setSpacingBefore(8);
+            amounts.add(new Chunk(String.format("$%.2f", g.getCurrentAmount()), 
+                new Font(Font.FontFamily.HELVETICA, 12, Font.BOLD, PRIMARY_COLOR)));
+            amounts.add(new Chunk(String.format(" of $%.2f (%.0f%%)", g.getTargetAmount(), progress),
+                new Font(Font.FontFamily.HELVETICA, 10, Font.NORMAL, GRAY_COLOR)));
+            card.addElement(amounts);
+            
+            // Deadline and priority
+            if (g.getDeadline() != null || g.getPriority() != null) {
+                Paragraph details = new Paragraph();
+                details.setSpacingBefore(5);
+                if (g.getDeadline() != null) {
+                    details.add(new Chunk("Deadline: " + g.getDeadline().format(
+                        DateTimeFormatter.ofPattern("MMM dd, yyyy")), 
+                        new Font(Font.FontFamily.HELVETICA, 9, Font.NORMAL, GRAY_COLOR)));
+                }
+                if (g.getPriority() != null) {
+                    if (g.getDeadline() != null) details.add(new Chunk("  |  ", 
+                        new Font(Font.FontFamily.HELVETICA, 9, Font.NORMAL, GRAY_COLOR)));
+                    BaseColor priorityColor = "High".equalsIgnoreCase(g.getPriority()) ? DANGER_COLOR :
+                        "Medium".equalsIgnoreCase(g.getPriority()) ? ACCENT_COLOR : GRAY_COLOR;
+                    details.add(new Chunk("Priority: " + g.getPriority(),
+                        new Font(Font.FontFamily.HELVETICA, 9, Font.BOLD, priorityColor)));
+                }
+                card.addElement(details);
+            }
+            
+            goalCard.addCell(card);
+            document.add(goalCard);
+        }
+    }
+    
+    private void addReportFooter(Document document, Font smallFont) throws DocumentException {
+        Paragraph footer = new Paragraph();
+        footer.setSpacingBefore(30);
+        footer.setAlignment(Element.ALIGN_CENTER);
+        footer.add(new Chunk("─────────────────────────────────────────────────────────────────", smallFont));
+        footer.add(Chunk.NEWLINE);
+        footer.add(new Chunk("This report was generated by BudgetWise - Your Personal Finance Assistant", smallFont));
+        footer.add(Chunk.NEWLINE);
+        footer.add(new Chunk("© " + LocalDate.now().getYear() + " BudgetWise. All financial data is confidential.", smallFont));
+        document.add(footer);
     }
     
     private void addTableCell(PdfPTable table, String text, Font font, BaseColor bgColor) {
-        PdfPCell cell = new PdfPCell(new Phrase(text != null ? text : "", font));
+        PdfPCell cell = new PdfPCell(new Phrase(text != null ? text : "-", font));
         cell.setBackgroundColor(bgColor);
-        cell.setPadding(8);
-        cell.setBorderColor(new BaseColor(243, 244, 246));
+        cell.setPadding(6);
         table.addCell(cell);
     }
+    
+    private String formatAmount(BigDecimal amount) {
+        if (amount == null) return "0.00";
+        return String.format("%,.2f", amount.abs());
+    }
+    
+    private String truncate(String text, int maxLength) {
+        if (text == null) return "";
+        return text.length() > maxLength ? text.substring(0, maxLength - 3) + "..." : text;
+    }
 
+    // ==================== CSV EXPORT ====================
+
+    private byte[] exportToCsv(User user, Map<String, Boolean> options) throws Exception {
+        StringBuilder csv = new StringBuilder();
+        
+        if (options.getOrDefault("transactions", false)) {
+            List<Transaction> transactions = transactionRepository.findByUser(user);
+            csv.append("# TRANSACTIONS\n");
+            csv.append("id,description,amount,category,date,type,paymentMethod,currency\n");
+            
+            for (Transaction t : transactions) {
+                csv.append(String.format("%d,\"%s\",%.2f,\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
+                        t.getId(),
+                        escapeCsv(t.getDescription()),
+                        t.getAmount(),
+                        escapeCsv(t.getCategory()),
+                        t.getDate() != null ? t.getDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "",
+                        t.getType(),
+                        t.getPaymentMethod() != null ? escapeCsv(t.getPaymentMethod()) : "",
+                        t.getCurrency() != null ? t.getCurrency() : ""));
+            }
+            csv.append("\n");
+        }
+        
+        if (options.getOrDefault("budgets", false)) {
+            List<Budget> budgets = budgetRepository.findByUser(user);
+            csv.append("# BUDGETS\n");
+            csv.append("id,category,amount,startDate,endDate\n");
+            
+            for (Budget b : budgets) {
+                csv.append(String.format("%d,\"%s\",%.2f,\"%s\",\"%s\"\n",
+                        b.getId(),
+                        escapeCsv(b.getCategory()),
+                        b.getAmount(),
+                        b.getStartDate(),
+                        b.getEndDate()));
+            }
+            csv.append("\n");
+        }
+        
+        if (options.getOrDefault("goals", false)) {
+            List<Goal> goals = goalRepository.findByUser(user);
+            csv.append("# GOALS\n");
+            csv.append("id,goalName,category,targetAmount,currentAmount,deadline,priority,createdAt\n");
+            
+            for (Goal g : goals) {
+                csv.append(String.format("%d,\"%s\",\"%s\",%.2f,%.2f,\"%s\",\"%s\",\"%s\"\n",
+                        g.getId(),
+                        escapeCsv(g.getGoalName()),
+                        escapeCsv(g.getCategory()),
+                        g.getTargetAmount(),
+                        g.getCurrentAmount(),
+                        g.getDeadline() != null ? g.getDeadline() : "",
+                        g.getPriority() != null ? g.getPriority() : "",
+                        g.getCreatedAt() != null ? g.getCreatedAt() : ""));
+            }
+        }
+        
+        return csv.toString().getBytes(StandardCharsets.UTF_8);
+    }
+    
     private String escapeCsv(String value) {
         if (value == null) return "";
-        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
-            return "\"" + value.replace("\"", "\"\"") + "\"";
-        }
-        return value;
+        return value.replace("\"", "\"\"");
     }
 
-    public Map<String, Object> importData(String format, InputStream inputStream, Map<String, Boolean> options) {
+    // ==================== JSON EXPORT ====================
+
+    private byte[] exportToJson(User user, Map<String, Boolean> options) throws Exception {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("exportDate", LocalDateTime.now().toString());
+        data.put("exportedBy", user.getUsername());
+        
+        if (options.getOrDefault("transactions", false)) {
+            List<Transaction> transactions = transactionRepository.findByUser(user);
+            List<Map<String, Object>> transactionList = transactions.stream().map(t -> {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("id", t.getId());
+                map.put("description", t.getDescription());
+                map.put("amount", t.getAmount());
+                map.put("category", t.getCategory());
+                map.put("date", t.getDate() != null ? t.getDate().toString() : null);
+                map.put("type", t.getType());
+                map.put("paymentMethod", t.getPaymentMethod());
+                map.put("currency", t.getCurrency());
+                return map;
+            }).collect(Collectors.toList());
+            data.put("transactions", transactionList);
+        }
+        
+        if (options.getOrDefault("budgets", false)) {
+            List<Budget> budgets = budgetRepository.findByUser(user);
+            List<Map<String, Object>> budgetList = budgets.stream().map(b -> {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("id", b.getId());
+                map.put("category", b.getCategory());
+                map.put("amount", b.getAmount());
+                map.put("startDate", b.getStartDate() != null ? b.getStartDate().toString() : null);
+                map.put("endDate", b.getEndDate() != null ? b.getEndDate().toString() : null);
+                return map;
+            }).collect(Collectors.toList());
+            data.put("budgets", budgetList);
+        }
+        
+        if (options.getOrDefault("goals", false)) {
+            List<Goal> goals = goalRepository.findByUser(user);
+            List<Map<String, Object>> goalList = goals.stream().map(g -> {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("id", g.getId());
+                map.put("goalName", g.getGoalName());
+                map.put("category", g.getCategory());
+                map.put("targetAmount", g.getTargetAmount());
+                map.put("currentAmount", g.getCurrentAmount());
+                map.put("deadline", g.getDeadline() != null ? g.getDeadline().toString() : null);
+                map.put("priority", g.getPriority());
+                map.put("createdAt", g.getCreatedAt() != null ? g.getCreatedAt().toString() : null);
+                return map;
+            }).collect(Collectors.toList());
+            data.put("goals", goalList);
+        }
+        
+        return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(data);
+    }
+
+    // ==================== IMPORT METHODS ====================
+
+    @Transactional
+    public Map<String, Object> importData(String format, InputStream inputStream, Map<String, Boolean> options) throws Exception {
+        User user = getCurrentUser();
+        
+        switch (format.toLowerCase()) {
+            case "csv":
+                return importFromCsv(user, inputStream, options);
+            case "json":
+                return importFromJson(user, inputStream, options);
+            default:
+                throw new IllegalArgumentException("Unsupported import format: " + format);
+        }
+    }
+
+    private Map<String, Object> importFromJson(User user, InputStream inputStream, Map<String, Boolean> options) throws Exception {
+        Map<String, Object> result = new HashMap<>();
+        int transactionsImported = 0;
+        int budgetsImported = 0;
+        int goalsImported = 0;
+        List<String> errors = new ArrayList<>();
+        
         try {
-            User currentUser = getCurrentUser();
-            Map<String, Object> result = new HashMap<>();
-            int importedCount = 0;
+            String jsonContent = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))
+                    .lines().collect(Collectors.joining("\n"));
             
-            log.info("Starting import for format: " + format);
+            JsonNode rootNode = objectMapper.readTree(jsonContent);
             
-            if (format == null || format.trim().isEmpty()) {
-                result.put("success", false);
-                result.put("message", "File format not specified. Please ensure the file has a .csv or .json extension.");
-                return result;
+            // Import transactions
+            if (options.getOrDefault("transactions", false) && rootNode.has("transactions")) {
+                JsonNode transactionsNode = rootNode.get("transactions");
+                if (transactionsNode.isArray()) {
+                    for (JsonNode tNode : transactionsNode) {
+                        try {
+                            Transaction transaction = Transaction.builder()
+                                    .description(getTextValue(tNode, "description", "Imported transaction"))
+                                    .amount(getBigDecimalValue(tNode, "amount"))
+                                    .category(getTextValue(tNode, "category", "Other"))
+                                    .date(parseDateTimeValue(tNode, "date"))
+                                    .type(getTextValue(tNode, "type", "EXPENSE"))
+                                    .paymentMethod(getTextValue(tNode, "paymentMethod", null))
+                                    .currency(getTextValue(tNode, "currency", "USD"))
+                                    .user(user)
+                                    .build();
+                            transactionRepository.save(transaction);
+                            transactionsImported++;
+                        } catch (Exception e) {
+                            errors.add("Transaction import error: " + e.getMessage());
+                        }
+                    }
+                }
             }
             
-            switch (format.toLowerCase()) {
-                case "json":
-                    importedCount = importFromJson(inputStream, currentUser, options);
-                    break;
-                case "csv":
-                    importedCount = importFromCsv(inputStream, currentUser, options);
-                    break;
-                case "pdf":
-                    result.put("success", false);
-                    result.put("message", "PDF import is not supported. Please use CSV or JSON format instead.");
-                    return result;
-                default:
-                    result.put("success", false);
-                    result.put("message", "Unsupported file format: " + format + ". Supported formats are CSV and JSON.");
-                    return result;
+            // Import budgets
+            if (options.getOrDefault("budgets", false) && rootNode.has("budgets")) {
+                JsonNode budgetsNode = rootNode.get("budgets");
+                if (budgetsNode.isArray()) {
+                    for (JsonNode bNode : budgetsNode) {
+                        try {
+                            Budget budget = Budget.builder()
+                                    .category(getTextValue(bNode, "category", "Other"))
+                                    .amount(getBigDecimalValue(bNode, "amount"))
+                                    .startDate(parseDateValue(bNode, "startDate"))
+                                    .endDate(parseDateValue(bNode, "endDate"))
+                                    .user(user)
+                                    .build();
+                            budgetRepository.save(budget);
+                            budgetsImported++;
+                        } catch (Exception e) {
+                            errors.add("Budget import error: " + e.getMessage());
+                        }
+                    }
+                }
             }
             
-            if (importedCount == 0) {
-                result.put("success", false);
-                result.put("message", "No valid records found in the file. Please check that the file format is correct and contains at least one record.");
-                return result;
+            // Import goals
+            if (options.getOrDefault("goals", false) && rootNode.has("goals")) {
+                JsonNode goalsNode = rootNode.get("goals");
+                if (goalsNode.isArray()) {
+                    for (JsonNode gNode : goalsNode) {
+                        try {
+                            Goal goal = Goal.builder()
+                                    .goalName(getTextValue(gNode, "goalName", "Imported Goal"))
+                                    .category(getTextValue(gNode, "category", "Other"))
+                                    .targetAmount(getDoubleValue(gNode, "targetAmount"))
+                                    .currentAmount(getDoubleValue(gNode, "currentAmount"))
+                                    .deadline(parseDateValue(gNode, "deadline"))
+                                    .priority(getTextValue(gNode, "priority", "Medium"))
+                                    .createdAt(parseDateValue(gNode, "createdAt") != null ? parseDateValue(gNode, "createdAt") : LocalDate.now())
+                                    .user(user)
+                                    .build();
+                            goalRepository.save(goal);
+                            goalsImported++;
+                        } catch (Exception e) {
+                            errors.add("Goal import error: " + e.getMessage());
+                        }
+                    }
+                }
             }
             
-            result.put("success", true);
-            result.put("message", "Import successful! " + importedCount + " records imported.");
-            result.put("recordsImported", importedCount);
-            
-            log.info("Import completed successfully. Imported " + importedCount + " records.");
-            
-            return result;
-        } catch (com.fasterxml.jackson.core.JsonParseException e) {
-            log.error("JSON parsing error: ", e);
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", "Invalid JSON format. Please ensure the file is a valid JSON file. Error: " + e.getOriginalMessage());
-            return errorResponse;
         } catch (Exception e) {
-            log.error("Import failed: ", e);
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", "Import failed: " + e.getMessage() + ". Please check the file format and try again.");
-            return errorResponse;
+            result.put("success", false);
+            result.put("message", "Failed to parse JSON file: " + e.getMessage());
+            return result;
         }
+        
+        result.put("success", true);
+        result.put("message", String.format("Import completed. Transactions: %d, Budgets: %d, Goals: %d",
+                transactionsImported, budgetsImported, goalsImported));
+        result.put("transactionsImported", transactionsImported);
+        result.put("budgetsImported", budgetsImported);
+        result.put("goalsImported", goalsImported);
+        
+        if (!errors.isEmpty()) {
+            result.put("warnings", errors);
+        }
+        
+        return result;
     }
 
-    private int importFromJson(InputStream inputStream, User user, Map<String, Boolean> options) throws Exception {
-        @SuppressWarnings("unchecked")
-        Map<String, Object> data = objectMapper.readValue(inputStream, Map.class);
+    private Map<String, Object> importFromCsv(User user, InputStream inputStream, Map<String, Boolean> options) throws Exception {
+        Map<String, Object> result = new HashMap<>();
+        int transactionsImported = 0;
+        int budgetsImported = 0;
+        int goalsImported = 0;
+        List<String> errors = new ArrayList<>();
         
-        int count = 0;
-        
-        // Import Transactions
-        if (options.getOrDefault("transactions", true) && data.containsKey("transactions")) {
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> transactions = (List<Map<String, Object>>) data.get("transactions");
-            log.info("Importing " + (transactions != null ? transactions.size() : 0) + " transactions");
-            if (transactions != null) {
-                for (Map<String, Object> txnMap : transactions) {
-                    try {
-                        if (txnMap == null) continue;
-                        
-                        Transaction txn = new Transaction();
-                        txn.setUser(user);
-                        txn.setDescription((String) txnMap.getOrDefault("description", ""));
-                        txn.setType((String) txnMap.getOrDefault("type", "EXPENSE"));
-                        txn.setCategory((String) txnMap.getOrDefault("category", "Other"));
-                        
-                        Object amountObj = txnMap.get("amount");
-                        if (amountObj != null) {
-                            txn.setAmount(new java.math.BigDecimal(((Number) amountObj).doubleValue()));
-                        } else {
-                            txn.setAmount(new java.math.BigDecimal(0));
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+            String line;
+            String currentSection = null;
+            String[] headers = null;
+            
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                
+                if (line.isEmpty()) {
+                    continue;
+                }
+                
+                // Detect section
+                if (line.startsWith("# TRANSACTIONS")) {
+                    currentSection = "transactions";
+                    headers = null;
+                    continue;
+                } else if (line.startsWith("# BUDGETS")) {
+                    currentSection = "budgets";
+                    headers = null;
+                    continue;
+                } else if (line.startsWith("# GOALS")) {
+                    currentSection = "goals";
+                    headers = null;
+                    continue;
+                }
+                
+                // Skip comment lines
+                if (line.startsWith("#")) {
+                    continue;
+                }
+                
+                // Parse header line
+                if (headers == null) {
+                    headers = parseCsvLine(line);
+                    continue;
+                }
+                
+                // Parse data line
+                String[] values = parseCsvLine(line);
+                
+                if (currentSection == null) {
+                    // Try to auto-detect based on headers
+                    if (headers.length > 0) {
+                        if (containsHeader(headers, "description") && containsHeader(headers, "type")) {
+                            currentSection = "transactions";
+                        } else if (containsHeader(headers, "startDate") && containsHeader(headers, "endDate")) {
+                            currentSection = "budgets";
+                        } else if (containsHeader(headers, "goalName") || containsHeader(headers, "targetAmount")) {
+                            currentSection = "goals";
                         }
-                        
-                        txn.setCurrency((String) txnMap.getOrDefault("currency", "USD"));
-                        txn.setPaymentMethod((String) txnMap.getOrDefault("paymentMethod", "Cash"));
-                        txn.setDate(java.time.LocalDateTime.now());
-                        
-                        transactionRepository.save(txn);
-                        count++;
-                        log.debug("Imported transaction: " + txn.getDescription());
-                    } catch (Exception e) {
-                        log.warn("Failed to import transaction: " + e.getMessage());
                     }
+                }
+                
+                try {
+                    if ("transactions".equals(currentSection) && options.getOrDefault("transactions", false)) {
+                        Transaction transaction = parseTransactionFromCsv(headers, values, user);
+                        if (transaction != null) {
+                            transactionRepository.save(transaction);
+                            transactionsImported++;
+                        }
+                    } else if ("budgets".equals(currentSection) && options.getOrDefault("budgets", false)) {
+                        Budget budget = parseBudgetFromCsv(headers, values, user);
+                        if (budget != null) {
+                            budgetRepository.save(budget);
+                            budgetsImported++;
+                        }
+                    } else if ("goals".equals(currentSection) && options.getOrDefault("goals", false)) {
+                        Goal goal = parseGoalFromCsv(headers, values, user);
+                        if (goal != null) {
+                            goalRepository.save(goal);
+                            goalsImported++;
+                        }
+                    }
+                } catch (Exception e) {
+                    errors.add("CSV line parse error: " + e.getMessage());
                 }
             }
         }
         
-        // Import Budgets
-        if (options.getOrDefault("budgets", true) && data.containsKey("budgets")) {
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> budgets = (List<Map<String, Object>>) data.get("budgets");
-            log.info("Importing " + (budgets != null ? budgets.size() : 0) + " budgets");
-            if (budgets != null) {
-                for (Map<String, Object> budgetMap : budgets) {
-                    try {
-                        if (budgetMap == null) continue;
-                        
-                        Budget budget = new Budget();
-                        budget.setUser(user);
-                        budget.setCategory((String) budgetMap.getOrDefault("category", "Other"));
-                        
-                        Object amountObj = budgetMap.get("amount");
-                        if (amountObj != null) {
-                            budget.setAmount(new java.math.BigDecimal(((Number) amountObj).doubleValue()));
-                        } else {
-                            budget.setAmount(new java.math.BigDecimal(0));
-                        }
-                        
-                        // Set date ranges
-                        java.time.LocalDate now = java.time.LocalDate.now();
-                        budget.setStartDate(now);
-                        budget.setEndDate(now.plusMonths(1));
-                        
-                        budgetRepository.save(budget);
-                        count++;
-                        log.debug("Imported budget: " + budget.getCategory());
-                    } catch (Exception e) {
-                        log.warn("Failed to import budget: " + e.getMessage());
-                    }
-                }
-            }
+        result.put("success", true);
+        result.put("message", String.format("Import completed. Transactions: %d, Budgets: %d, Goals: %d",
+                transactionsImported, budgetsImported, goalsImported));
+        result.put("transactionsImported", transactionsImported);
+        result.put("budgetsImported", budgetsImported);
+        result.put("goalsImported", goalsImported);
+        
+        if (!errors.isEmpty()) {
+            result.put("warnings", errors);
         }
         
-        // Import Goals
-        if (options.getOrDefault("goals", true) && data.containsKey("goals")) {
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> goals = (List<Map<String, Object>>) data.get("goals");
-            log.info("Importing " + (goals != null ? goals.size() : 0) + " goals");
-            if (goals != null) {
-                for (Map<String, Object> goalMap : goals) {
-                    try {
-                        if (goalMap == null) continue;
-                        
-                        Goal goal = new Goal();
-                        goal.setUser(user);
-                        goal.setGoalName((String) goalMap.getOrDefault("goalName", "Unnamed Goal"));
-                        goal.setCategory((String) goalMap.getOrDefault("category", "General"));
-                        
-                        Object targetObj = goalMap.get("targetAmount");
-                        if (targetObj != null) {
-                            goal.setTargetAmount(((Number) targetObj).doubleValue());
-                        } else {
-                            goal.setTargetAmount(0.0);
-                        }
-                        
-                        goal.setPriority((String) goalMap.getOrDefault("priority", "Medium"));
-                        goal.setCreatedAt(java.time.LocalDate.now());
-                        goal.setCurrentAmount(0.0);
-                        
-                        goalRepository.save(goal);
-                        count++;
-                        log.debug("Imported goal: " + goal.getGoalName());
-                    } catch (Exception e) {
-                        log.warn("Failed to import goal: " + e.getMessage());
-                    }
-                }
+        return result;
+    }
+    
+    private boolean containsHeader(String[] headers, String headerName) {
+        for (String h : headers) {
+            if (h.equalsIgnoreCase(headerName)) {
+                return true;
             }
         }
-        
-        return count;
+        return false;
     }
 
-    private int importFromCsv(InputStream inputStream, User user, Map<String, Boolean> options) throws Exception {
-        int count = 0;
-        InputStreamReader reader = new InputStreamReader(inputStream);
-        CSVReader csvReader = new CSVReader(reader);
-        String[] nextLine;
-        int lineNum = 0;
+    private String[] parseCsvLine(String line) {
+        List<String> result = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inQuotes = false;
         
-        boolean inTransactions = false;
-        boolean inBudgets = false;
-        boolean inGoals = false;
-        
-        log.info("Starting CSV import");
-        
-        while ((nextLine = csvReader.readNext()) != null) {
-            lineNum++;
-            if (nextLine.length == 0) continue;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
             
-            String firstCol = nextLine[0].trim();
-            
-            // Detect section
-            if ("TRANSACTIONS".equals(firstCol)) {
-                inTransactions = true;
-                inBudgets = false;
-                inGoals = false;
-                log.info("Found TRANSACTIONS section at line " + lineNum);
-                continue;
-            } else if ("BUDGETS".equals(firstCol)) {
-                inTransactions = false;
-                inBudgets = true;
-                inGoals = false;
-                log.info("Found BUDGETS section at line " + lineNum);
-                continue;
-            } else if ("GOALS".equals(firstCol)) {
-                inTransactions = false;
-                inBudgets = false;
-                inGoals = true;
-                log.info("Found GOALS section at line " + lineNum);
-                continue;
+            if (c == '"') {
+                if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                    current.append('"');
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (c == ',' && !inQuotes) {
+                result.add(current.toString().trim());
+                current = new StringBuilder();
+            } else {
+                current.append(c);
             }
-            
-            // Skip headers and metadata
-            if (firstCol.isEmpty() || firstCol.equals("Date") || firstCol.equals("Category") || 
-                firstCol.equals("Goal Name") || firstCol.equals("GoalName") ||
-                firstCol.equals("BudgetWise Data Export") || firstCol.equals("Export Date") || 
-                firstCol.equals("User") || firstCol.contains("Date,Description")) {
-                continue;
-            }
-            
+        }
+        result.add(current.toString().trim());
+        
+        return result.toArray(new String[0]);
+    }
+
+    private Transaction parseTransactionFromCsv(String[] headers, String[] values, User user) {
+        Map<String, String> row = new HashMap<>();
+        for (int i = 0; i < headers.length && i < values.length; i++) {
+            row.put(headers[i].toLowerCase().trim(), values[i]);
+        }
+        
+        return Transaction.builder()
+                .description(row.getOrDefault("description", "Imported"))
+                .amount(new BigDecimal(row.getOrDefault("amount", "0")))
+                .category(row.getOrDefault("category", "Other"))
+                .date(parseDateTime(row.get("date")))
+                .type(row.getOrDefault("type", "EXPENSE").toUpperCase())
+                .paymentMethod(row.get("paymentmethod"))
+                .currency(row.getOrDefault("currency", "USD"))
+                .user(user)
+                .build();
+    }
+
+    private Budget parseBudgetFromCsv(String[] headers, String[] values, User user) {
+        Map<String, String> row = new HashMap<>();
+        for (int i = 0; i < headers.length && i < values.length; i++) {
+            row.put(headers[i].toLowerCase().trim(), values[i]);
+        }
+        
+        return Budget.builder()
+                .category(row.getOrDefault("category", "Other"))
+                .amount(new BigDecimal(row.getOrDefault("amount", "0")))
+                .startDate(parseDate(row.get("startdate")))
+                .endDate(parseDate(row.get("enddate")))
+                .user(user)
+                .build();
+    }
+
+    private Goal parseGoalFromCsv(String[] headers, String[] values, User user) {
+        Map<String, String> row = new HashMap<>();
+        for (int i = 0; i < headers.length && i < values.length; i++) {
+            row.put(headers[i].toLowerCase().trim(), values[i]);
+        }
+        
+        return Goal.builder()
+                .goalName(row.getOrDefault("goalname", "Imported Goal"))
+                .category(row.getOrDefault("category", "Other"))
+                .targetAmount(Double.parseDouble(row.getOrDefault("targetamount", "0")))
+                .currentAmount(Double.parseDouble(row.getOrDefault("currentamount", "0")))
+                .deadline(parseDate(row.get("deadline")))
+                .priority(row.getOrDefault("priority", "Medium"))
+                .createdAt(parseDate(row.get("createdat")) != null ? parseDate(row.get("createdat")) : LocalDate.now())
+                .user(user)
+                .build();
+    }
+
+    // Helper methods for JSON parsing
+    private String getTextValue(JsonNode node, String field, String defaultValue) {
+        if (node.has(field) && !node.get(field).isNull()) {
+            return node.get(field).asText();
+        }
+        return defaultValue;
+    }
+
+    private BigDecimal getBigDecimalValue(JsonNode node, String field) {
+        if (node.has(field) && !node.get(field).isNull()) {
+            return new BigDecimal(node.get(field).asText());
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private Double getDoubleValue(JsonNode node, String field) {
+        if (node.has(field) && !node.get(field).isNull()) {
+            return node.get(field).asDouble();
+        }
+        return 0.0;
+    }
+
+    private LocalDateTime parseDateTimeValue(JsonNode node, String field) {
+        if (node.has(field) && !node.get(field).isNull()) {
+            return parseDateTime(node.get(field).asText());
+        }
+        return LocalDateTime.now();
+    }
+
+    private LocalDate parseDateValue(JsonNode node, String field) {
+        if (node.has(field) && !node.get(field).isNull()) {
+            return parseDate(node.get(field).asText());
+        }
+        return null;
+    }
+
+    private LocalDateTime parseDateTime(String dateStr) {
+        if (dateStr == null || dateStr.isEmpty()) {
+            return LocalDateTime.now();
+        }
+        
+        // Try multiple formats
+        List<DateTimeFormatter> formatters = Arrays.asList(
+                DateTimeFormatter.ISO_LOCAL_DATE_TIME,
+                DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"),
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
+                DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"),
+                DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss"),
+                DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm:ss")
+        );
+        
+        for (DateTimeFormatter formatter : formatters) {
             try {
-                if (inTransactions && options.getOrDefault("transactions", true) && nextLine.length >= 7) {
-                    Transaction txn = new Transaction();
-                    txn.setUser(user);
-                    txn.setDescription(SafeString(nextLine[1]));
-                    txn.setType(SafeString(nextLine[2], "EXPENSE"));
-                    txn.setCategory(SafeString(nextLine[3], "Other"));
-                    
-                    try {
-                        txn.setAmount(new java.math.BigDecimal(nextLine[4].trim()));
-                    } catch (Exception e) {
-                        log.warn("Failed to parse amount at line " + lineNum + ": " + nextLine[4]);
-                        txn.setAmount(new java.math.BigDecimal(0));
-                    }
-                    
-                    txn.setCurrency(SafeString(nextLine[5], "USD"));
-                    txn.setPaymentMethod(SafeString(nextLine[6], "Cash"));
-                    txn.setDate(java.time.LocalDateTime.now());
-                    
-                    transactionRepository.save(txn);
-                    count++;
-                    log.debug("CSV Imported transaction: " + txn.getDescription());
-                } else if (inBudgets && options.getOrDefault("budgets", true) && nextLine.length >= 2) {
-                    Budget budget = new Budget();
-                    budget.setUser(user);
-                    budget.setCategory(SafeString(nextLine[0], "Other"));
-                    
-                    try {
-                        budget.setAmount(new java.math.BigDecimal(nextLine[1].trim()));
-                    } catch (Exception e) {
-                        log.warn("Failed to parse budget amount at line " + lineNum + ": " + nextLine[1]);
-                        budget.setAmount(new java.math.BigDecimal(0));
-                    }
-                    
-                    java.time.LocalDate now = java.time.LocalDate.now();
-                    budget.setStartDate(now);
-                    budget.setEndDate(now.plusMonths(1));
-                    
-                    budgetRepository.save(budget);
-                    count++;
-                    log.debug("CSV Imported budget: " + budget.getCategory());
-                } else if (inGoals && options.getOrDefault("goals", true) && nextLine.length >= 2) {
-                    Goal goal = new Goal();
-                    goal.setUser(user);
-                    goal.setGoalName(SafeString(nextLine[0], "Unnamed Goal"));
-                    goal.setCategory(SafeString(nextLine[1], "General"));
-                    
-                    try {
-                        goal.setTargetAmount(Double.parseDouble(nextLine[2].trim()));
-                    } catch (Exception e) {
-                        goal.setTargetAmount(0.0);
-                    }
-                    
-                    goal.setPriority(nextLine.length > 5 ? SafeString(nextLine[5], "Medium") : "Medium");
-                    goal.setCreatedAt(java.time.LocalDate.now());
-                    goal.setCurrentAmount(0.0);
-                    
-                    goalRepository.save(goal);
-                    count++;
-                    log.debug("CSV Imported goal: " + goal.getGoalName());
-                }
-            } catch (Exception e) {
-                log.warn("Failed to import CSV row: " + e.getMessage());
+                return LocalDateTime.parse(dateStr, formatter);
+            } catch (DateTimeParseException ignored) {
             }
         }
         
-        csvReader.close();
-        log.info("CSV import completed. Total records: " + count);
-        return count;
-    }
-    
-    private String SafeString(String value) {
-        return SafeString(value, "");
-    }
-    
-    private String SafeString(String value, String defaultValue) {
-        if (value == null || value.trim().isEmpty()) {
-            return defaultValue;
+        // Try parsing as date only
+        LocalDate date = parseDate(dateStr);
+        if (date != null) {
+            return date.atStartOfDay();
         }
-        return value.trim();
+        
+        return LocalDateTime.now();
     }
 
-    private User getCurrentUser() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        if (username == null || "anonymousUser".equals(username)) {
-            throw new RuntimeException("User not authenticated");
+    private LocalDate parseDate(String dateStr) {
+        if (dateStr == null || dateStr.isEmpty()) {
+            return null;
         }
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        List<DateTimeFormatter> formatters = Arrays.asList(
+                DateTimeFormatter.ISO_LOCAL_DATE,
+                DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+                DateTimeFormatter.ofPattern("dd-MM-yyyy"),
+                DateTimeFormatter.ofPattern("MM/dd/yyyy"),
+                DateTimeFormatter.ofPattern("dd/MM/yyyy")
+        );
+        
+        for (DateTimeFormatter formatter : formatters) {
+            try {
+                return LocalDate.parse(dateStr, formatter);
+            } catch (DateTimeParseException ignored) {
+            }
+        }
+        
+        return null;
     }
 }
