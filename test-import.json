@@ -1,0 +1,44 @@
+{
+  "transactions": [
+    {
+      "description": "Grocery Shopping",
+      "type": "EXPENSE",
+      "category": "Food",
+      "amount": 50.00,
+      "currency": "USD",
+      "paymentMethod": "Card"
+    },
+    {
+      "description": "Monthly Salary",
+      "type": "INCOME",
+      "category": "Salary",
+      "amount": 5000.00,
+      "currency": "USD",
+      "paymentMethod": "Bank Transfer"
+    }
+  ],
+  "budgets": [
+    {
+      "category": "Food",
+      "amount": 500.00
+    },
+    {
+      "category": "Entertainment",
+      "amount": 200.00
+    }
+  ],
+  "goals": [
+    {
+      "goalName": "Emergency Fund",
+      "category": "Financial",
+      "targetAmount": 10000.00,
+      "priority": "High"
+    },
+    {
+      "goalName": "Vacation",
+      "category": "Travel",
+      "targetAmount": 5000.00,
+      "priority": "Medium"
+    }
+  ]
+}
