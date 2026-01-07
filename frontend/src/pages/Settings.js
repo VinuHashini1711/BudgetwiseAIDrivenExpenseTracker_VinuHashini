@@ -4,6 +4,36 @@ import { useTheme } from '../context/ThemeContext';
 import { TransactionContext } from '../context/TransactionContext';
 import '../styles/Settings.css';
 
+// Helper function to get user-friendly error messages
+const getErrorMessage = (error, defaultMessage) => {
+  const backendMessage = error.response?.data?.message;
+  
+  // Map technical errors to user-friendly messages
+  const errorMap = {
+    'No EntityManager': 'Something went wrong. Please try again.',
+    'EntityManager': 'Something went wrong. Please try again.',
+    'transaction': 'Something went wrong. Please try again.',
+    'Connection refused': 'Unable to connect to server. Please check your internet connection.',
+    'Network Error': 'Unable to connect to server. Please check your internet connection.',
+    'timeout': 'Request timed out. Please try again.',
+    '401': 'Your session has expired. Please log in again.',
+    '403': 'You don\'t have permission to perform this action.',
+    '500': 'Server error. Please try again later.',
+  };
+  
+  // Check if the message contains any technical terms
+  if (backendMessage) {
+    for (const [key, value] of Object.entries(errorMap)) {
+      if (backendMessage.toLowerCase().includes(key.toLowerCase())) {
+        return value;
+      }
+    }
+    return backendMessage;
+  }
+  
+  return defaultMessage;
+};
+
 export default function Settings(){
   const { isDarkMode, toggleTheme } = useTheme();
   const { transactions } = useContext(TransactionContext);
@@ -15,6 +45,7 @@ export default function Settings(){
     riskTolerance: 'Moderate - Balanced approach to risk and return'
   });
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
   
   const handleCloudBackup = async (service) => {
     try {
@@ -28,13 +59,13 @@ export default function Settings(){
       if (response.data.authUrl) {
         // Open auth window for OAuth
         window.open(response.data.authUrl, '_blank', 'width=600,height=600');
-        alert(`Please authorize ${service} access in the popup window`);
+        setMessage({ type: 'info', text: `Please authorize ${service} access in the popup window` });
       } else {
-        alert(`Backup to ${service} completed successfully!`);
+        setMessage({ type: 'success', text: `Backup to ${service} completed successfully!` });
       }
     } catch (error) {
       console.error('Backup error:', error);
-      alert(`Backup to ${service} failed: ` + (error.response?.data?.message || error.message));
+      setMessage({ type: 'error', text: getErrorMessage(error, `Unable to backup to ${service}. Please try again.`) });
     } finally {
       setLoading(false);
     }
@@ -74,6 +105,7 @@ export default function Settings(){
   const saveChanges = async () => {
     try {
       setLoading(true);
+      setMessage({ type: '', text: '' });
       // Save to backend API
       await axios.put('/api/settings', {
         language: settings.language,
@@ -81,10 +113,10 @@ export default function Settings(){
         monthlyIncome: settings.monthlyIncome,
         riskTolerance: settings.riskTolerance
       });
-      alert('Settings saved successfully!');
+      setMessage({ type: 'success', text: 'Settings saved successfully!' });
     } catch (error) {
       console.error('Error saving settings:', error);
-      alert(error.response?.data?.message || 'Failed to save settings');
+      setMessage({ type: 'error', text: getErrorMessage(error, 'Unable to save settings. Please try again.') });
     } finally {
       setLoading(false);
     }
@@ -115,15 +147,17 @@ export default function Settings(){
       const response = await axios.delete('/api/profile/account');
       
       if (response.status === 200) {
-        alert('Account deleted successfully. You will be logged out now.');
+        setMessage({ type: 'success', text: 'Account deleted successfully. You will be logged out now.' });
         // Clear local storage and redirect to login
-        localStorage.removeItem('token');
-        localStorage.removeItem('bw_token');
-        window.location.href = '/login';
+        setTimeout(() => {
+          localStorage.removeItem('token');
+          localStorage.removeItem('bw_token');
+          window.location.href = '/login';
+        }, 1500);
       }
     } catch (error) {
       console.error('Error deleting account:', error);
-      alert(error.response?.data?.message || 'Failed to delete account: ' + error.message);
+      setMessage({ type: 'error', text: getErrorMessage(error, 'Unable to delete your account. Please try again later.') });
     } finally {
       setLoading(false);
     }
@@ -154,13 +188,15 @@ export default function Settings(){
       const response = await axios.post('/api/profile/reset-data');
       
       if (response.status === 200) {
-        alert('Account data reset successfully. All your data has been cleared.');
+        setMessage({ type: 'success', text: 'Account data reset successfully. All your data has been cleared.' });
         // Optionally refresh the page or redirect
-        window.location.href = '/dashboard';
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 1500);
       }
     } catch (error) {
       console.error('Error resetting account:', error);
-      alert(error.response?.data?.message || 'Failed to reset account: ' + error.message);
+      setMessage({ type: 'error', text: getErrorMessage(error, 'Unable to reset your account data. Please try again later.') });
     } finally {
       setLoading(false);
     }
@@ -182,6 +218,42 @@ export default function Settings(){
 
   return (
     <div>
+      {/* Message notification */}
+      {message.text && (
+        <div style={{
+          padding: '16px 20px',
+          marginBottom: '20px',
+          borderRadius: '12px',
+          background: message.type === 'success' 
+            ? (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)')
+            : message.type === 'info'
+            ? (isDarkMode ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)')
+            : (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)'),
+          border: `1px solid ${message.type === 'success' ? '#10b981' : message.type === 'info' ? '#3b82f6' : '#ef4444'}`,
+          color: message.type === 'success' ? '#10b981' : message.type === 'info' ? '#3b82f6' : '#ef4444',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {message.type === 'success' ? '✅' : message.type === 'info' ? 'ℹ️' : '⚠️'} {message.text}
+          </span>
+          <button
+            onClick={() => setMessage({ type: '', text: '' })}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+              fontSize: '18px',
+              padding: '0 4px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       {/* Enhanced Header */}
       <div className="page-title-card" style={{
         background: isDarkMode 

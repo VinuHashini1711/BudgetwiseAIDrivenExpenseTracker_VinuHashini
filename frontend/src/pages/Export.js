@@ -3,6 +3,29 @@ import axios from '../api/axios';
 import { useTheme } from '../context/ThemeContext';
 import '../styles/Export.css';
 
+// Helper function to convert error responses into user-friendly messages
+const getErrorMessage = (error) => {
+  if (error.response?.data?.message) {
+    return error.response.data.message;
+  }
+  if (error.response?.status === 400) {
+    return 'Invalid file format. Please use CSV, JSON, or PDF files.';
+  }
+  if (error.response?.status === 401) {
+    return 'Your session has expired. Please log in again.';
+  }
+  if (error.response?.status === 403) {
+    return 'You do not have permission to perform this action.';
+  }
+  if (error.response?.status === 500) {
+    return 'Something went wrong on our end. Please try again later.';
+  }
+  if (error.message === 'Network Error') {
+    return 'Unable to connect. Please check your internet connection.';
+  }
+  return 'An unexpected error occurred. Please try again.';
+};
+
 export default function Export() {
   const { isDarkMode } = useTheme();
   const [loading, setLoading] = useState(false);
@@ -17,6 +40,7 @@ export default function Export() {
     budgets: true,
     goals: true
   });
+  const [message, setMessage] = useState({ type: '', text: '' });
   const fileInputRef = React.useRef(null);
   
   // Theme colors
@@ -77,10 +101,10 @@ export default function Export() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      alert('Backup file downloaded! Please upload it to your Google Drive manually.');
+      setMessage({ type: 'success', text: 'Backup file downloaded! Please upload it to your Google Drive manually.' });
     } catch (error) {
       console.error('Error creating backup:', error);
-      alert('Failed to create backup');
+      setMessage({ type: 'error', text: getErrorMessage(error) });
     } finally {
       setLoading(false);
     }
@@ -104,10 +128,10 @@ export default function Export() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      alert('Backup file downloaded! Please upload it to your Dropbox manually.');
+      setMessage({ type: 'success', text: 'Backup file downloaded! Please upload it to your Dropbox manually.' });
     } catch (error) {
       console.error('Error creating backup:', error);
-      alert('Failed to create backup');
+      setMessage({ type: 'error', text: getErrorMessage(error) });
     } finally {
       setLoading(false);
     }
@@ -115,10 +139,11 @@ export default function Export() {
 
   const executeExport = async () => {
     if (selectedSections.length === 0) {
-      alert('Please select at least one section to export');
+      setMessage({ type: 'error', text: 'Please select at least one section to export' });
       return;
     }
     try {
+      setMessage({ type: '', text: '' });
       setLoading(true);
       const sections = selectedSections.join(',');
       if (exportType === 'pdf') {
@@ -148,9 +173,10 @@ export default function Export() {
       }
       setShowExportModal(false);
       setSelectedSections([]);
+      setMessage({ type: 'success', text: 'Data exported successfully!' });
     } catch (error) {
       console.error('Error exporting:', error);
-      alert('Failed to export data');
+      setMessage({ type: 'error', text: getErrorMessage(error) });
     } finally {
       setLoading(false);
     }
@@ -177,18 +203,19 @@ export default function Export() {
 
   const executeImport = async () => {
     if (!importFile) {
-      alert('Please select a file to import');
+      setMessage({ type: 'error', text: 'Please select a file to import' });
       return;
     }
 
     const hasSelectedSection = Object.values(importSections).some(val => val);
     if (!hasSelectedSection) {
-      alert('Please select at least one data type to import');
+      setMessage({ type: 'error', text: 'Please select at least one data type to import' });
       return;
     }
 
     try {
       setImportLoading(true);
+      setMessage({ type: '', text: '' });
       const formData = new FormData();
       formData.append('file', importFile);
       formData.append('options', JSON.stringify(importSections));
@@ -199,7 +226,7 @@ export default function Export() {
         }
       });
 
-      alert('Import successful! Your data has been imported.');
+      setMessage({ type: 'success', text: 'Import successful! Your data has been imported.' });
       setShowImportModal(false);
       setImportFile(null);
       setImportSections({
@@ -213,22 +240,7 @@ export default function Export() {
       }
     } catch (error) {
       console.error('Error importing:', error);
-      
-      let errorMessage = 'Failed to import data. Please check the file format.';
-      
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.status === 400) {
-        errorMessage = 'Bad request. Please check that your file is in CSV or JSON format.';
-      } else if (error.response?.status === 401) {
-        errorMessage = 'Session expired. Please log in again.';
-      } else if (error.response?.status === 500) {
-        errorMessage = 'Server error. Please try again later.';
-      } else if (error.message === 'Network Error') {
-        errorMessage = 'Network error. Please check your internet connection.';
-      }
-      
-      alert(errorMessage);
+      setMessage({ type: 'error', text: getErrorMessage(error) });
     } finally {
       setImportLoading(false);
     }
@@ -236,6 +248,40 @@ export default function Export() {
 
   return (
     <div style={{ padding: '24px', maxWidth: '1600px', margin: '0 auto' }}>
+      {/* Message notification */}
+      {message.text && (
+        <div style={{
+          padding: '16px 20px',
+          marginBottom: '20px',
+          borderRadius: '12px',
+          background: message.type === 'success' 
+            ? (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)')
+            : (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)'),
+          border: `1px solid ${message.type === 'success' ? '#10b981' : '#ef4444'}`,
+          color: message.type === 'success' ? '#10b981' : '#ef4444',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {message.type === 'success' ? '✅' : '⚠️'} {message.text}
+          </span>
+          <button
+            onClick={() => setMessage({ type: '', text: '' })}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+              fontSize: '18px',
+              padding: '0 4px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       {/* Enhanced Header */}
       <div className="page-title-card" style={{
         background: isDarkMode 

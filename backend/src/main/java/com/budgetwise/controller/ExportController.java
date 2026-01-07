@@ -142,10 +142,10 @@ public class ExportController {
             
             // Validate file extension
             String filename = file.getOriginalFilename();
-            if (filename == null || (!filename.endsWith(".csv") && !filename.endsWith(".json"))) {
+            if (filename == null || (!filename.endsWith(".csv") && !filename.endsWith(".json") && !filename.endsWith(".pdf"))) {
                 Map<String, Object> errorResponse = new HashMap<>();
                 errorResponse.put("success", false);
-                errorResponse.put("message", "Invalid file format. Only CSV and JSON files are supported. Please ensure your file ends with .csv or .json");
+                errorResponse.put("message", "Invalid file format. Please upload a CSV, JSON, or PDF file.");
                 return ResponseEntity.status(400).body(errorResponse);
             }
             
@@ -179,6 +179,8 @@ public class ExportController {
                     format = "csv";
                 } else if (filename.endsWith(".json")) {
                     format = "json";
+                } else if (filename.endsWith(".pdf")) {
+                    format = "pdf";
                 }
             }
             

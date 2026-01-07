@@ -55,11 +55,11 @@ public class GoalService {
 
     public GoalResponse getGoalById(Long id) {
         Goal goal = goalRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Goal not found"));
+                .orElseThrow(() -> new RuntimeException("Goal not found. It may have been deleted."));
 
         User currentUser = getCurrentUser();
         if (!goal.getUser().getId().equals(currentUser.getId())) {
-            throw new RuntimeException("Unauthorized to access this goal");
+            throw new RuntimeException("You don't have permission to view this goal.");
         }
 
         return mapToResponse(goal);
@@ -68,10 +68,10 @@ public class GoalService {
     public GoalResponse updateGoal(Long id, GoalRequest request) {
         User user = getCurrentUser();
         Goal goal = goalRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Goal not found"));
+                .orElseThrow(() -> new RuntimeException("Goal not found. It may have been deleted."));
 
         if (!goal.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized to update this goal");
+            throw new RuntimeException("You don't have permission to edit this goal.");
         }
 
         goal.setGoalName(request.getGoalName());
@@ -88,10 +88,10 @@ public class GoalService {
     public void deleteGoal(Long id) {
         User user = getCurrentUser();
         Goal goal = goalRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Goal not found"));
+                .orElseThrow(() -> new RuntimeException("Goal not found. It may have been deleted."));
 
         if (!goal.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized to delete this goal");
+            throw new RuntimeException("You don't have permission to delete this goal.");
         }
 
         goalRepository.delete(goal);

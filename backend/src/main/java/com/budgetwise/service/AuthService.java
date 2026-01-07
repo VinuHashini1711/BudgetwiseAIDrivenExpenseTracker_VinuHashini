@@ -26,19 +26,19 @@ public class AuthService {
     public AuthResponse register(RegisterRequest request) {
 
         if (!request.getPassword().equals(request.getConfirmPassword())) {
-            throw new RuntimeException("Passwords do not match");
+            throw new RuntimeException("Passwords don't match. Please make sure both passwords are the same.");
         }
 
         if (request.getCaptchaValue() == null || request.getCaptchaValue().trim().isEmpty()) {
-            throw new RuntimeException("Captcha is required");
+            throw new RuntimeException("Please complete the captcha verification.");
         }
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+            throw new RuntimeException("An account with this email already exists. Please use a different email or try logging in.");
         }
 
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Username already exists");
+            throw new RuntimeException("This username is already taken. Please choose a different one.");
         }
 
         // Create new user without profile image
@@ -65,7 +65,7 @@ public class AuthService {
         var userOpt = userRepository.findByEmail(request.getEmailOrUsername())
                 .or(() -> userRepository.findByUsername(request.getEmailOrUsername()));
 
-        var user = userOpt.orElseThrow(() -> new RuntimeException("User not found"));
+        var user = userOpt.orElseThrow(() -> new RuntimeException("No account found with this email or username."));
 
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(user.getEmail(), request.getPassword())

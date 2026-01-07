@@ -4,6 +4,31 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import '../styles/Community.css';
 
+// Helper function to get user-friendly error messages
+const getErrorMessage = (error, defaultMessage) => {
+  const backendMessage = error.response?.data?.message;
+  
+  const errorMap = {
+    'Connection refused': 'Unable to connect to server. Please check your internet connection.',
+    'Network Error': 'Unable to connect to server. Please check your internet connection.',
+    'timeout': 'Request timed out. Please try again.',
+    '401': 'Your session has expired. Please log in again.',
+    '403': 'You don\'t have permission to perform this action.',
+    '500': 'Server error. Please try again later.',
+  };
+  
+  if (backendMessage) {
+    for (const [key, value] of Object.entries(errorMap)) {
+      if (backendMessage.toLowerCase().includes(key.toLowerCase())) {
+        return value;
+      }
+    }
+    return backendMessage;
+  }
+  
+  return defaultMessage;
+};
+
 export default function Community() {
   const { isDarkMode } = useTheme();
   const { user } = useAuth();
@@ -12,6 +37,7 @@ export default function Community() {
   const [selectedPost, setSelectedPost] = useState(null);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
   const [formData, setFormData] = useState({
     title: '',
     category: '',
@@ -61,26 +87,27 @@ export default function Community() {
 
   const handleCreatePost = async () => {
     if (!formData.title.trim()) {
-      alert('Post title cannot be empty');
+      setMessage({ type: 'error', text: 'Post title cannot be empty' });
       return;
     }
     if (!formData.category) {
-      alert('Please select a category');
+      setMessage({ type: 'error', text: 'Please select a category' });
       return;
     }
     if (!formData.content.trim()) {
-      alert('Post content cannot be empty');
+      setMessage({ type: 'error', text: 'Post content cannot be empty' });
       return;
     }
 
     try {
       setLoading(true);
+      setMessage({ type: '', text: '' });
       const response = await axios.post('/api/posts', formData);
       setPosts([response.data, ...posts]);
       setFormData({ title: '', category: '', content: '' });
       setShowNewPostModal(false);
       localStorage.setItem('bw_community_posts', JSON.stringify([response.data, ...posts]));
-      alert('Post created successfully!');
+      setMessage({ type: 'success', text: 'Post created successfully!' });
     } catch (error) {
       console.error('Error creating post:', error);
       // Fallback to localStorage
@@ -101,7 +128,7 @@ export default function Community() {
       localStorage.setItem('bw_community_posts', JSON.stringify(updatedPosts));
       setFormData({ title: '', category: '', content: '' });
       setShowNewPostModal(false);
-      alert('Post created (offline mode)');
+      setMessage({ type: 'success', text: 'Post created (offline mode)' });
     } finally {
       setLoading(false);
     }
@@ -109,7 +136,7 @@ export default function Community() {
 
   const handleAddComment = async () => {
     if (!newComment.trim() || !selectedPost) {
-      alert('Comment cannot be empty');
+      setMessage({ type: 'error', text: 'Comment cannot be empty' });
       return;
     }
 
@@ -135,7 +162,7 @@ export default function Community() {
       setNewComment('');
     } catch (error) {
       console.error('Error adding comment:', error);
-      alert('Failed to add comment');
+      setMessage({ type: 'error', text: getErrorMessage(error, 'Unable to add comment. Please try again.') });
     } finally {
       setLoading(false);
     }
@@ -157,7 +184,7 @@ export default function Community() {
       }
     } catch (error) {
       console.error('Error liking post:', error);
-      alert('Failed to like post');
+      setMessage({ type: 'error', text: getErrorMessage(error, 'Unable to like post. Please try again.') });
     }
   };
 
@@ -169,10 +196,10 @@ export default function Community() {
         if (selectedPost?.id === postId) {
           setSelectedPost(null);
         }
-        alert('Post deleted successfully!');
+        setMessage({ type: 'success', text: 'Post deleted successfully!' });
       } catch (error) {
         console.error('Error deleting post:', error);
-        alert('Failed to delete post');
+        setMessage({ type: 'error', text: getErrorMessage(error, 'Unable to delete post. Please try again.') });
       }
     }
   };
@@ -194,10 +221,10 @@ export default function Community() {
               : p
           ));
         }
-        alert('Comment deleted successfully!');
+        setMessage({ type: 'success', text: 'Comment deleted successfully!' });
       } catch (error) {
         console.error('Error deleting comment:', error);
-        alert('Failed to delete comment');
+        setMessage({ type: 'error', text: 'Failed to delete comment. Please try again.' });
       }
     }
   };
@@ -212,6 +239,42 @@ export default function Community() {
 
   return (
     <div className="community-container">
+      {/* Message notification */}
+      {message.text && (
+        <div style={{
+          padding: '16px 20px',
+          marginBottom: '20px',
+          borderRadius: '12px',
+          background: message.type === 'success' 
+            ? (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)')
+            : (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)'),
+          border: `1px solid ${message.type === 'success' ? '#10b981' : '#ef4444'}`,
+          color: message.type === 'success' ? '#10b981' : '#ef4444',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          animation: 'fadeIn 0.3s ease-out',
+          maxWidth: '1400px',
+          margin: '0 auto 20px auto'
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {message.type === 'success' ? '✅' : '⚠️'} {message.text}
+          </span>
+          <button
+            onClick={() => setMessage({ type: '', text: '' })}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+              fontSize: '18px',
+              padding: '0 4px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         {/* Header */}
         <div className="page-title-card" style={{

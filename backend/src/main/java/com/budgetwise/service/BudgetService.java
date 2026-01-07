@@ -62,10 +62,10 @@ public class BudgetService {
     public BudgetResponse updateBudget(Long budgetId, BudgetRequest request) {
         User user = getCurrentUser();
         Budget budget = budgetRepository.findById(budgetId)
-                .orElseThrow(() -> new RuntimeException("Budget not found"));
+                .orElseThrow(() -> new RuntimeException("Budget not found. It may have been deleted."));
 
         if (!budget.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized to update this budget");
+            throw new RuntimeException("You don't have permission to edit this budget.");
         }
 
         budget.setCategory(request.getCategory());
@@ -80,10 +80,10 @@ public class BudgetService {
     public void deleteBudget(Long budgetId) {
         User user = getCurrentUser();
         Budget budget = budgetRepository.findById(budgetId)
-                .orElseThrow(() -> new RuntimeException("Budget not found"));
+                .orElseThrow(() -> new RuntimeException("Budget not found. It may have been deleted."));
 
         if (!budget.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized to delete this budget");
+            throw new RuntimeException("You don't have permission to delete this budget.");
         }
 
         budgetRepository.delete(budget);

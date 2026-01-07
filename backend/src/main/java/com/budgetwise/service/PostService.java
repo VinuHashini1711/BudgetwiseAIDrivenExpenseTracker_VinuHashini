@@ -70,10 +70,10 @@ public class PostService {
     public PostResponse updatePost(Long id, PostRequest request) {
         User user = getCurrentUser();
         Post post = postRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new RuntimeException("Post not found. It may have been deleted."));
 
         if (!post.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized to update this post");
+            throw new RuntimeException("You can only edit your own posts.");
         }
 
         post.setTitle(request.getTitle());
@@ -88,10 +88,10 @@ public class PostService {
     public void deletePost(Long id) {
         User user = getCurrentUser();
         Post post = postRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new RuntimeException("Post not found. It may have been deleted."));
 
         if (!post.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized to delete this post");
+            throw new RuntimeException("You can only delete your own posts.");
         }
 
         postRepository.delete(post);
@@ -118,10 +118,10 @@ public class PostService {
     public void deleteComment(Long commentId) {
         User user = getCurrentUser();
         Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new RuntimeException("Comment not found. It may have been deleted."));
 
         if (!comment.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized to delete this comment");
+            throw new RuntimeException("You can only delete your own comments.");
         }
 
         commentRepository.delete(comment);

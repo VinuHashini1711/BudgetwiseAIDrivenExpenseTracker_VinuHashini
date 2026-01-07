@@ -55,16 +55,16 @@ public class PasswordResetService {
     public void resetPassword(String token, String newPassword) {
         // Find token
         PasswordResetToken resetToken = tokenRepository.findByTokenAndUsedFalse(token)
-                .orElseThrow(() -> new RuntimeException("Invalid or expired reset token"));
+                .orElseThrow(() -> new RuntimeException("This reset link is invalid or has already been used."));
         
         // Check if token is expired
         if (resetToken.isExpired()) {
-            throw new RuntimeException("Reset token has expired");
+            throw new RuntimeException("This reset link has expired. Please request a new one.");
         }
         
         // Check if token has been used
         if (resetToken.isUsed()) {
-            throw new RuntimeException("Reset token has already been used");
+            throw new RuntimeException("This reset link has already been used. Please request a new one.");
         }
         
         // Update user password

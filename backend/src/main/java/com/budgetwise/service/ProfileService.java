@@ -82,7 +82,7 @@ public class ProfileService {
         if (request.getUsername() != null && !request.getUsername().isEmpty()) {
             if (userRepository.existsByUsername(request.getUsername()) &&
                     !request.getUsername().equals(user.getUsername())) {
-                throw new RuntimeException("Username already taken");
+                throw new RuntimeException("This username is already taken. Please choose a different one.");
             }
             user.setUsername(request.getUsername());
         }
@@ -91,7 +91,7 @@ public class ProfileService {
         if (request.getNewPassword() != null && !request.getNewPassword().isEmpty()) {
             if (request.getCurrentPassword() == null ||
                     !passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-                throw new RuntimeException("Current password is incorrect");
+                throw new RuntimeException("The current password you entered is incorrect.");
             }
             user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         }
@@ -149,7 +149,7 @@ public class ProfileService {
         User user = getCurrentUser();
 
         if (file == null || file.isEmpty()) {
-            throw new RuntimeException("No file uploaded");
+            throw new RuntimeException("Please select an image to upload.");
         }
 
         try {
@@ -183,7 +183,7 @@ public class ProfileService {
                     .build();
 
         } catch (IOException ex) {
-            throw new RuntimeException("Failed to store file", ex);
+            throw new RuntimeException("Unable to save your profile picture. Please try again.");
         }
     }
 
@@ -215,13 +215,14 @@ public class ProfileService {
             log.info("User account deleted successfully: {}", user.getId());
         } catch (Exception e) {
             log.error("Error deleting account: {}", e.getMessage());
-            throw new RuntimeException("Failed to delete account: " + e.getMessage());
+            throw new RuntimeException("Unable to delete your account. Please try again later.");
         }
     }
 
     /**
      * Resets all user data (transactions, budgets, goals) but keeps the account
      */
+    @Transactional
     public void resetAccountData() {
         User user = getCurrentUser();
         log.info("Resetting account data for user: {}", user.getId());
@@ -242,7 +243,7 @@ public class ProfileService {
             log.info("Account data reset successfully for user: {}", user.getId());
         } catch (Exception e) {
             log.error("Error resetting account data: {}", e.getMessage());
-            throw new RuntimeException("Failed to reset account data: " + e.getMessage());
+            throw new RuntimeException("Unable to reset your account data. Please try again later.");
         }
     }
 }

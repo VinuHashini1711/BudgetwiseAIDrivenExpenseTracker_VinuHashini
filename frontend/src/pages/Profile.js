@@ -4,6 +4,31 @@ import { useTheme } from '../context/ThemeContext';
 import axios from '../api/axios';
 import '../styles/Profile.css';
 
+// Helper function to get user-friendly error messages
+const getErrorMessage = (error, defaultMessage) => {
+  const backendMessage = error.response?.data?.message;
+  
+  const errorMap = {
+    'Connection refused': 'Unable to connect to server. Please check your internet connection.',
+    'Network Error': 'Unable to connect to server. Please check your internet connection.',
+    'timeout': 'Request timed out. Please try again.',
+    '401': 'Your session has expired. Please log in again.',
+    '403': 'You don\'t have permission to perform this action.',
+    '500': 'Server error. Please try again later.',
+  };
+  
+  if (backendMessage) {
+    for (const [key, value] of Object.entries(errorMap)) {
+      if (backendMessage.toLowerCase().includes(key.toLowerCase())) {
+        return value;
+      }
+    }
+    return backendMessage;
+  }
+  
+  return defaultMessage;
+};
+
 export default function Profile(){
   const { user, logout } = useAuth();
   const { isDarkMode } = useTheme();
@@ -22,6 +47,7 @@ export default function Profile(){
   const [previewUrl, setPreviewUrl] = useState(null);
   const [showUploader, setShowUploader] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
     if(user) {
@@ -91,6 +117,7 @@ export default function Profile(){
   const handleSave = async () => {
     try {
       setLoading(true);
+      setMessage({ type: '', text: '' });
       // Prepare data with only non-empty values
       const updateData = {
         fullName: profile.fullName.trim() || undefined,
@@ -121,12 +148,12 @@ export default function Profile(){
         profileImageUrl: updatedData.profileImageUrl || ''
       });
       
-      alert('Profile saved successfully!');
+      setMessage({ type: 'success', text: 'Profile saved successfully!' });
       // Reload profile to confirm persistence
       await loadProfile();
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert(error.response?.data?.message || 'Failed to save profile');
+      setMessage({ type: 'error', text: getErrorMessage(error, 'Unable to save your profile. Please try again.') });
     } finally {
       setLoading(false);
     }
@@ -139,6 +166,40 @@ export default function Profile(){
 
   return (
     <div>
+      {/* Message notification */}
+      {message.text && (
+        <div style={{
+          padding: '16px 20px',
+          marginBottom: '20px',
+          borderRadius: '12px',
+          background: message.type === 'success' 
+            ? (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)')
+            : (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)'),
+          border: `1px solid ${message.type === 'success' ? '#10b981' : '#ef4444'}`,
+          color: message.type === 'success' ? '#10b981' : '#ef4444',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {message.type === 'success' ? '✅' : '⚠️'} {message.text}
+          </span>
+          <button
+            onClick={() => setMessage({ type: '', text: '' })}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+              fontSize: '18px',
+              padding: '0 4px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       {/* Enhanced Header */}
       <div className="page-title-card" style={{
         background: isDarkMode 
@@ -289,7 +350,10 @@ export default function Profile(){
                   <button
                     className="btn"
                     onClick={async () => {
-                      if (!selectedFile) return alert('Select an image first');
+                      if (!selectedFile) {
+                        setMessage({ type: 'error', text: 'Please select an image first' });
+                        return;
+                      }
                       const fd = new FormData();
                       fd.append('file', selectedFile);
                       try {
@@ -307,12 +371,11 @@ export default function Profile(){
                         setShowUploader(false);
                         setSelectedFile(null);
                         setPreviewUrl(null);
-                        alert('Profile picture uploaded');
+                        setMessage({ type: 'success', text: 'Profile picture uploaded successfully!' });
                       } catch (err) {
                         console.error(err);
-                        const status = err?.response?.status;
                         const msg = err?.response?.data?.message || err?.response?.data?.error || err.message || 'Upload failed';
-                        alert(`Upload failed (status ${status}): ${msg}`);
+                        setMessage({ type: 'error', text: `Upload failed: ${msg}` });
                       } finally {
                         setLoading(false);
                       }

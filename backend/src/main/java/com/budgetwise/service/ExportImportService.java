@@ -975,9 +975,239 @@ public class ExportImportService {
                 return importFromCsv(user, inputStream, options);
             case "json":
                 return importFromJson(user, inputStream, options);
+            case "pdf":
+                return importFromPdf(user, inputStream, options);
             default:
                 throw new IllegalArgumentException("Unsupported import format: " + format);
         }
+    }
+
+    private Map<String, Object> importFromPdf(User user, InputStream inputStream, Map<String, Boolean> options) throws Exception {
+        Map<String, Object> result = new HashMap<>();
+        int transactionsImported = 0;
+        int budgetsImported = 0;
+        int goalsImported = 0;
+        List<String> errors = new ArrayList<>();
+
+        try {
+            // Read PDF content using iText PdfReader
+            PdfReader reader = new PdfReader(inputStream);
+            StringBuilder textContent = new StringBuilder();
+            
+            for (int i = 1; i <= reader.getNumberOfPages(); i++) {
+                textContent.append(com.itextpdf.text.pdf.parser.PdfTextExtractor.getTextFromPage(reader, i));
+                textContent.append("\n");
+            }
+            reader.close();
+            
+            String content = textContent.toString();
+            String[] lines = content.split("\n");
+            
+            String currentSection = "";
+            boolean skipHeaderLine = false;
+            
+            for (String line : lines) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+                
+                // Detect sections
+                if (line.toUpperCase().contains("TRANSACTION") && (line.toUpperCase().contains("HISTORY") || line.toUpperCase().contains("SUMMARY"))) {
+                    currentSection = "transactions";
+                    skipHeaderLine = true;
+                    continue;
+                } else if (line.toUpperCase().contains("BUDGET") && (line.toUpperCase().contains("OVERVIEW") || line.toUpperCase().contains("SUMMARY") || line.toUpperCase().contains("STATUS"))) {
+                    currentSection = "budgets";
+                    skipHeaderLine = true;
+                    continue;
+                } else if (line.toUpperCase().contains("GOAL") && (line.toUpperCase().contains("PROGRESS") || line.toUpperCase().contains("SAVINGS"))) {
+                    currentSection = "goals";
+                    skipHeaderLine = true;
+                    continue;
+                }
+                
+                // Skip table header lines
+                if (skipHeaderLine && (line.toUpperCase().contains("DATE") || line.toUpperCase().contains("CATEGORY") || 
+                    line.toUpperCase().contains("DESCRIPTION") || line.toUpperCase().contains("AMOUNT") ||
+                    line.toUpperCase().contains("TYPE") || line.toUpperCase().contains("METHOD"))) {
+                    skipHeaderLine = false;
+                    continue;
+                }
+                skipHeaderLine = false;
+                
+                // Parse transaction lines - handle various formats from PDF extraction
+                if (currentSection.equals("transactions") && options.getOrDefault("transactions", false)) {
+                    try {
+                        // PDF table extraction often produces space-separated values
+                        // Look for lines with date patterns: "Jan 05, 2026", "2026-01-05", "05/01/2026"
+                        if (line.matches(".*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\\s+\\d{1,2},?\\s+\\d{4}.*") ||
+                            line.matches(".*\\d{4}-\\d{2}-\\d{2}.*") ||
+                            line.matches(".*\\d{1,2}/\\d{1,2}/\\d{4}.*")) {
+                            
+                            String[] parts = line.split("\\s{2,}"); // Split by multiple spaces
+                            if (parts.length >= 4) {
+                                String dateStr = parts[0].trim();
+                                String description = parts[1].trim();
+                                String category = parts[2].trim();
+                                String typeStr = parts.length > 3 ? parts[3].trim().toUpperCase() : "EXPENSE";
+                                String amountStr = parts.length > 4 ? parts[4].trim().replaceAll("[^\\d.,]", "") : "0";
+                                
+                                // Clean up amount - remove commas, handle decimal
+                                amountStr = amountStr.replace(",", "");
+                                if (amountStr.isEmpty()) amountStr = "0";
+                                
+                                LocalDateTime date = parseFlexibleDate(dateStr);
+                                BigDecimal amount = new BigDecimal(amountStr);
+                                
+                                // Determine type from the parsed text or default
+                                String type = typeStr.contains("INCOME") ? "INCOME" : "EXPENSE";
+                                
+                                if (amount.compareTo(BigDecimal.ZERO) > 0 && !description.isEmpty()) {
+                                    Transaction transaction = Transaction.builder()
+                                            .description(description)
+                                            .amount(amount.abs())
+                                            .category(category)
+                                            .date(date != null ? date : LocalDateTime.now())
+                                            .type(type)
+                                            .currency("INR")
+                                            .user(user)
+                                            .build();
+                                    transactionRepository.save(transaction);
+                                    transactionsImported++;
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Skip invalid lines silently
+                    }
+                }
+                
+                // Parse budget lines
+                if (currentSection.equals("budgets") && options.getOrDefault("budgets", false)) {
+                    try {
+                        // Skip header-like lines
+                        if (line.toUpperCase().contains("CATEGORY") || line.toUpperCase().contains("BUDGET") || 
+                            line.toUpperCase().contains("SPENT") || line.toUpperCase().contains("REMAINING")) {
+                            continue;
+                        }
+                        
+                        // Look for budget data: Category  Amount  Spent  Remaining
+                        String[] parts = line.split("\\s{2,}");
+                        if (parts.length >= 2) {
+                            String category = parts[0].trim();
+                            String amountStr = parts[1].trim().replaceAll("[^\\d.,]", "").replace(",", "");
+                            
+                            if (!category.isEmpty() && !amountStr.isEmpty() && amountStr.matches("\\d+\\.?\\d*")) {
+                                BigDecimal amount = new BigDecimal(amountStr);
+                                if (amount.compareTo(BigDecimal.ZERO) > 0) {
+                                    Budget budget = Budget.builder()
+                                            .category(category)
+                                            .amount(amount)
+                                            .startDate(LocalDate.now().withDayOfMonth(1))
+                                            .endDate(LocalDate.now().withDayOfMonth(1).plusMonths(1).minusDays(1))
+                                            .user(user)
+                                            .build();
+                                    budgetRepository.save(budget);
+                                    budgetsImported++;
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Skip invalid lines silently
+                    }
+                }
+                
+                // Parse goal lines
+                if (currentSection.equals("goals") && options.getOrDefault("goals", false)) {
+                    try {
+                        // Skip header-like lines
+                        if (line.toUpperCase().contains("GOAL NAME") || line.toUpperCase().contains("TARGET") || 
+                            line.toUpperCase().contains("PROGRESS") || line.toUpperCase().contains("DEADLINE")) {
+                            continue;
+                        }
+                        
+                        String[] parts = line.split("\\s{2,}");
+                        if (parts.length >= 2) {
+                            String goalName = parts[0].trim();
+                            String targetStr = parts[1].trim().replaceAll("[^\\d.,]", "").replace(",", "");
+                            String currentStr = parts.length > 2 ? parts[2].trim().replaceAll("[^\\d.,]", "").replace(",", "") : "0";
+                            
+                            if (!goalName.isEmpty() && !targetStr.isEmpty() && targetStr.matches("\\d+\\.?\\d*") &&
+                                !goalName.toUpperCase().contains("GOAL") && !goalName.toUpperCase().contains("NAME")) {
+                                Double target = Double.parseDouble(targetStr);
+                                Double current = currentStr.isEmpty() || !currentStr.matches("\\d+\\.?\\d*") ? 0.0 : Double.parseDouble(currentStr);
+                                
+                                if (target > 0) {
+                                    Goal goal = Goal.builder()
+                                            .goalName(goalName)
+                                            .category("Savings")
+                                            .targetAmount(target)
+                                            .currentAmount(current)
+                                            .deadline(LocalDate.now().plusMonths(6))
+                                            .priority("Medium")
+                                            .createdAt(LocalDate.now())
+                                            .user(user)
+                                            .build();
+                                    goalRepository.save(goal);
+                                    goalsImported++;
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Skip invalid lines silently
+                    }
+                }
+            }
+            
+            // Provide helpful message if nothing was imported
+            if (transactionsImported == 0 && budgetsImported == 0 && goalsImported == 0) {
+                result.put("success", true);
+                result.put("message", "PDF was read successfully but no data could be extracted. " +
+                        "Note: PDF import works best with BudgetWise exported PDFs. " +
+                        "For best results, use JSON or CSV format for importing data.");
+            } else {
+                result.put("success", true);
+                result.put("message", String.format("PDF import completed! Imported %d transactions, %d budgets, %d goals.", 
+                        transactionsImported, budgetsImported, goalsImported));
+            }
+            result.put("transactionsImported", transactionsImported);
+            result.put("budgetsImported", budgetsImported);
+            result.put("goalsImported", goalsImported);
+            if (!errors.isEmpty()) {
+                result.put("warnings", errors);
+            }
+            
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("message", "Failed to parse PDF file. Please ensure it's a valid BudgetWise export file. For best results, use JSON or CSV format.");
+            result.put("error", e.getMessage());
+        }
+        
+        return result;
+    }
+
+    private LocalDateTime parseFlexibleDate(String dateStr) {
+        String[] formats = {
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd HH:mm",
+            "yyyy-MM-dd",
+            "dd/MM/yyyy",
+            "MM/dd/yyyy",
+            "dd-MM-yyyy",
+            "MMM dd, yyyy"
+        };
+        
+        for (String format : formats) {
+            try {
+                if (format.contains("HH")) {
+                    return LocalDateTime.parse(dateStr, DateTimeFormatter.ofPattern(format));
+                } else {
+                    return LocalDate.parse(dateStr, DateTimeFormatter.ofPattern(format)).atStartOfDay();
+                }
+            } catch (Exception e) {
+                // Try next format
+            }
+        }
+        return LocalDateTime.now();
     }
 
     private Map<String, Object> importFromJson(User user, InputStream inputStream, Map<String, Boolean> options) throws Exception {

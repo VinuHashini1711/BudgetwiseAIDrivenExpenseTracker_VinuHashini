@@ -160,6 +160,12 @@ body[style*="color: rgb(241, 245, 249)"] {
   background: transparent;
 }
 
+/* Full-width container when sidebar is not present */
+.container.no-sidebar {
+  margin-left: 0;
+  padding: 0;
+}
+
 @media (max-width: 768px) {
   .container {
     padding: var(--page-padding-tablet);

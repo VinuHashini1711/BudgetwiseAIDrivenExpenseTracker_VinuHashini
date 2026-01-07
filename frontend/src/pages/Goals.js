@@ -4,6 +4,31 @@ import { TransactionContext } from '../context/TransactionContext';
 import { useTheme } from '../context/ThemeContext';
 import '../styles/Goals.css';
 
+// Helper function to get user-friendly error messages
+const getErrorMessage = (error, defaultMessage) => {
+  const backendMessage = error.response?.data?.message;
+  
+  const errorMap = {
+    'Connection refused': 'Unable to connect to server. Please check your internet connection.',
+    'Network Error': 'Unable to connect to server. Please check your internet connection.',
+    'timeout': 'Request timed out. Please try again.',
+    '401': 'Your session has expired. Please log in again.',
+    '403': 'You don\'t have permission to perform this action.',
+    '500': 'Server error. Please try again later.',
+  };
+  
+  if (backendMessage) {
+    for (const [key, value] of Object.entries(errorMap)) {
+      if (backendMessage.toLowerCase().includes(key.toLowerCase())) {
+        return value;
+      }
+    }
+    return backendMessage;
+  }
+  
+  return defaultMessage;
+};
+
 export default function Goals() {
   const { isDarkMode } = useTheme();
   const { transactions: globalTransactions } = useContext(TransactionContext);
@@ -12,6 +37,7 @@ export default function Goals() {
   const [showModal, setShowModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
   const [form, setForm] = useState({
     goalName: '',
     category: 'Home Purchase',
@@ -33,7 +59,7 @@ export default function Goals() {
       setGoals(response.data);
     } catch (error) {
       console.error('Error loading goals:', error);
-      alert('Failed to load goals');
+      setMessage({ type: 'error', text: getErrorMessage(error, 'Unable to load your goals. Please refresh the page.') });
     } finally {
       setLoading(false);
     }
@@ -73,22 +99,23 @@ export default function Goals() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setMessage({ type: '', text: '' });
 
     try {
       if (!form.goalName.trim()) {
-        alert('Please enter a goal name');
+        setMessage({ type: 'error', text: 'Please enter a goal name' });
         setLoading(false);
         return;
       }
 
       if (!form.targetAmount || parseFloat(form.targetAmount) <= 0) {
-        alert('Please enter a valid target amount');
+        setMessage({ type: 'error', text: 'Please enter a valid target amount' });
         setLoading(false);
         return;
       }
 
       if (!form.deadline) {
-        alert('Please select a deadline');
+        setMessage({ type: 'error', text: 'Please select a deadline' });
         setLoading(false);
         return;
       }
@@ -106,18 +133,18 @@ export default function Goals() {
         // Update existing goal
         const response = await axios.put(`/api/goals/${editingGoal}`, goalData);
         setGoals(prev => prev.map(g => g.id === editingGoal ? response.data : g));
-        alert('Goal updated successfully!');
+        setMessage({ type: 'success', text: 'Goal updated successfully!' });
       } else {
         // Create new goal
         const response = await axios.post('/api/goals', goalData);
         setGoals(prev => [...prev, response.data]);
-        alert('Goal created successfully!');
+        setMessage({ type: 'success', text: 'Goal created successfully!' });
       }
 
       closeModal();
     } catch (err) {
       console.error('Error saving goal:', err);
-      alert('Error saving goal');
+      setMessage({ type: 'error', text: getErrorMessage(err, 'Unable to save goal. Please try again.') });
     } finally {
       setLoading(false);
     }
@@ -128,10 +155,10 @@ export default function Goals() {
       try {
         await axios.delete(`/api/goals/${id}`);
         setGoals(prev => prev.filter(g => g.id !== id));
-        alert('Goal deleted successfully!');
+        setMessage({ type: 'success', text: 'Goal deleted successfully!' });
       } catch (err) {
         console.error('Error deleting goal:', err);
-        alert('Error deleting goal');
+        setMessage({ type: 'error', text: getErrorMessage(err, 'Unable to delete goal. Please try again.') });
       }
     }
   };
@@ -146,7 +173,7 @@ export default function Goals() {
       setGoals(prev => prev.map(g => g.id === id ? response.data : g));
     } catch (err) {
       console.error('Error updating progress:', err);
-      alert('Error updating progress');
+      setMessage({ type: 'error', text: getErrorMessage(err, 'Unable to update progress. Please try again.') });
     }
   };
 
@@ -206,6 +233,40 @@ export default function Goals() {
 
   return (
     <div>
+      {/* Message notification */}
+      {message.text && (
+        <div style={{
+          padding: '16px 20px',
+          marginBottom: '20px',
+          borderRadius: '12px',
+          background: message.type === 'success' 
+            ? (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)')
+            : (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)'),
+          border: `1px solid ${message.type === 'success' ? '#10b981' : '#ef4444'}`,
+          color: message.type === 'success' ? '#10b981' : '#ef4444',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {message.type === 'success' ? '✅' : '⚠️'} {message.text}
+          </span>
+          <button
+            onClick={() => setMessage({ type: '', text: '' })}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+              fontSize: '18px',
+              padding: '0 4px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       {/* Enhanced Header */}
       <div
         className="page-title-card"

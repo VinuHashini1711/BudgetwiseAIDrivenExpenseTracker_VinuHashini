@@ -51,7 +51,7 @@ function AppContent() {
       {/* ✅ AI Floating Button - visible when logged in and not on auth pages */}
       {user && !noSidebarRoutes.includes(location.pathname) && <AIFloatingButton />}
 
-      <div className="container">
+      <div className={`container ${noSidebarRoutes.includes(location.pathname) ? 'no-sidebar' : ''}`}>
         <Routes>
           {/* Root path - Shows Welcome if not authenticated, Home if authenticated */}
           <Route

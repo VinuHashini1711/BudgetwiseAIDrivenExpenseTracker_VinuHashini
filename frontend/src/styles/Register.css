@@ -235,6 +235,83 @@ html, body {
 }
 
 /* ===============================
+   ERROR AND SUCCESS MESSAGES
+================================ */
+.auth-error {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.2) 100%);
+  border-radius: 14px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  margin-bottom: 24px;
+  animation: slideDown 0.3s ease;
+}
+
+.auth-error span {
+  font-size: 24px;
+  min-width: 30px;
+}
+
+.auth-error strong {
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.auth-error p {
+  color: #fecaca;
+  font-size: 14px;
+  margin: 0;
+  text-align: left;
+}
+
+.auth-success {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%);
+  border-radius: 14px;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  margin-bottom: 24px;
+  animation: slideDown 0.3s ease;
+}
+
+.auth-success span {
+  font-size: 24px;
+  min-width: 30px;
+  color: #10b981;
+}
+
+.auth-success strong {
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.auth-success p {
+  color: #a7f3d0;
+  font-size: 14px;
+  margin: 0;
+  text-align: left;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===============================
    MOBILE FALLBACK
 ================================ */
 @media (max-width: 960px) {

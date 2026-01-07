@@ -4,6 +4,31 @@ import { TransactionContext } from "../context/TransactionContext";
 import { useTheme } from '../context/ThemeContext';
 import "../styles/Transactions.css";
 
+// Helper function to get user-friendly error messages
+const getErrorMessage = (error, defaultMessage) => {
+  const backendMessage = error.response?.data?.message;
+  
+  const errorMap = {
+    'Connection refused': 'Unable to connect to server. Please check your internet connection.',
+    'Network Error': 'Unable to connect to server. Please check your internet connection.',
+    'timeout': 'Request timed out. Please try again.',
+    '401': 'Your session has expired. Please log in again.',
+    '403': 'You don\'t have permission to perform this action.',
+    '500': 'Server error. Please try again later.',
+  };
+  
+  if (backendMessage) {
+    for (const [key, value] of Object.entries(errorMap)) {
+      if (backendMessage.toLowerCase().includes(key.toLowerCase())) {
+        return value;
+      }
+    }
+    return backendMessage;
+  }
+  
+  return defaultMessage;
+};
+
 const BASE_URL = "/api/transactions";
 const DEFAULT_CURRENCIES = [
   "₹ INR - Indian Rupee",
@@ -54,6 +79,7 @@ export default function Transactions() {
   const [dateRangeFilter, setDateRangeFilter] = useState(false);
   const [dateRangeStart, setDateRangeStart] = useState("");
   const [dateRangeEnd, setDateRangeEnd] = useState("");
+  const [message, setMessage] = useState({ type: '', text: '' });
 
   // Initialize categories from localStorage
   useEffect(() => {
@@ -211,13 +237,13 @@ export default function Transactions() {
 
   const handleOtherCategorySubmit = () => {
     if (!newCategory.trim()) {
-      alert("Please enter a category name");
+      setMessage({ type: 'error', text: 'Please enter a category name' });
       return;
     }
     
     // Check if category already exists
     if (categories.includes(newCategory.trim())) {
-      alert("This category already exists");
+      setMessage({ type: 'error', text: 'This category already exists' });
       return;
     }
 
@@ -236,22 +262,23 @@ export default function Transactions() {
     setShowOtherCategoryInput(false);
     setNewCategory("");
     
-    alert(`Category "${newCategory.trim()}" added successfully!`);
+    setMessage({ type: 'success', text: `Category "${newCategory.trim()}" added successfully!` });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setMessage({ type: '', text: '' });
 
     try {
       // Validate form
       if (!form.description.trim()) {
-        alert("Please enter a description");
+        setMessage({ type: 'error', text: 'Please enter a description' });
         setLoading(false);
         return;
       }
       if (!form.amount || parseFloat(form.amount) <= 0) {
-        alert("Please enter a valid amount");
+        setMessage({ type: 'error', text: 'Please enter a valid amount' });
         setLoading(false);
         return;
       }
@@ -289,12 +316,12 @@ export default function Transactions() {
       if (err.response) {
         console.error("Response data:", err.response.data);
         console.error("Response status:", err.response.status);
-        alert(`Error: ${err.response.data?.message || err.response.statusText || "Error saving transaction"}`);
+        setMessage({ type: 'error', text: getErrorMessage(err, 'Unable to save transaction. Please try again.') });
       } else if (err.request) {
         console.error("No response received:", err.request);
-        alert("No response from server. Make sure the backend is running.");
+        setMessage({ type: 'error', text: 'Unable to connect to server. Please check your internet connection.' });
       } else {
-        alert("Error: " + err.message);
+        setMessage({ type: 'error', text: getErrorMessage(err, 'Unable to save transaction. Please try again.') });
       }
     } finally {
       setLoading(false);
@@ -338,7 +365,7 @@ export default function Transactions() {
 
   const handleExportCSV = () => {
     if (filteredTransactions.length === 0) {
-      alert("No transactions to export");
+      setMessage({ type: 'error', text: 'No transactions to export' });
       return;
     }
 
@@ -385,6 +412,40 @@ export default function Transactions() {
 
   return (
     <div className="transactions-page">
+      {/* Message notification */}
+      {message.text && (
+        <div style={{
+          padding: '16px 20px',
+          marginBottom: '20px',
+          borderRadius: '12px',
+          background: message.type === 'success' 
+            ? (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)')
+            : (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)'),
+          border: `1px solid ${message.type === 'success' ? '#10b981' : '#ef4444'}`,
+          color: message.type === 'success' ? '#10b981' : '#ef4444',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {message.type === 'success' ? '✅' : '⚠️'} {message.text}
+          </span>
+          <button
+            onClick={() => setMessage({ type: '', text: '' })}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+              fontSize: '18px',
+              padding: '0 4px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       {/* Header with Export & Currency */}
       <div className="page-title-card" style={{
         background: isDarkMode 

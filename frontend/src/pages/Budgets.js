@@ -4,6 +4,31 @@ import { TransactionContext } from '../context/TransactionContext';
 import { useTheme } from '../context/ThemeContext';
 import '../styles/Budgets.css';
 
+// Helper function to get user-friendly error messages
+const getErrorMessage = (error, defaultMessage) => {
+  const backendMessage = error.response?.data?.message;
+  
+  const errorMap = {
+    'Connection refused': 'Unable to connect to server. Please check your internet connection.',
+    'Network Error': 'Unable to connect to server. Please check your internet connection.',
+    'timeout': 'Request timed out. Please try again.',
+    '401': 'Your session has expired. Please log in again.',
+    '403': 'You don\'t have permission to perform this action.',
+    '500': 'Server error. Please try again later.',
+  };
+  
+  if (backendMessage) {
+    for (const [key, value] of Object.entries(errorMap)) {
+      if (backendMessage.toLowerCase().includes(key.toLowerCase())) {
+        return value;
+      }
+    }
+    return backendMessage;
+  }
+  
+  return defaultMessage;
+};
+
 export default function Budgets(){
   const { isDarkMode } = useTheme();
   const { transactions: globalTransactions } = useContext(TransactionContext);
@@ -13,6 +38,7 @@ export default function Budgets(){
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
   
   useEffect(()=>{ load(); },[]);
   
@@ -68,7 +94,7 @@ export default function Budgets(){
       setTransactions(transactionsList);
     } catch (error) {
       console.error('Error loading budgets and transactions:', error);
-      alert('Failed to load budgets');
+      setMessage({ type: 'error', text: 'Failed to load budgets. Please try again.' });
     } finally {
       setLoading(false);
     }
@@ -94,9 +120,10 @@ export default function Budgets(){
   const add = async (e)=>{ 
     e.preventDefault();
     if (!form.category.trim() || !form.amount) {
-      alert('Please fill all fields');
+      setMessage({ type: 'error', text: 'Please fill all fields' });
       return;
     }
+    setMessage({ type: '', text: '' });
 
     setLoading(true);
     try {
@@ -106,21 +133,21 @@ export default function Budgets(){
           category: form.category,
           amount: Number(form.amount)
         });
-        alert('Budget updated successfully');
+        setMessage({ type: 'success', text: 'Budget updated successfully!' });
       } else {
         // Create new budget
         await axios.post('/api/budgets', {
           category: form.category,
           amount: Number(form.amount)
         });
-        alert('Budget created successfully');
+        setMessage({ type: 'success', text: 'Budget created successfully!' });
       }
       setForm({category:'', amount:''}); 
       handleCloseModal();
       load();  // Reload to recalculate spent amounts from transactions
     } catch (error) {
       console.error('Error saving budget:', error);
-      alert(error.response?.data?.message || 'Failed to save budget');
+      setMessage({ type: 'error', text: getErrorMessage(error, 'Unable to save budget. Please try again.') });
     } finally {
       setLoading(false);
     }
@@ -130,11 +157,11 @@ export default function Budgets(){
     if (window.confirm('Are you sure you want to delete this budget?')) {
       try {
         await axios.delete(`/api/budgets/${id}`);
-        alert('Budget deleted successfully');
+        setMessage({ type: 'success', text: 'Budget deleted successfully!' });
         load();
       } catch (error) {
         console.error('Error deleting budget:', error);
-        alert(error.response?.data?.message || 'Failed to delete budget');
+        setMessage({ type: 'error', text: getErrorMessage(error, 'Unable to delete budget. Please try again.') });
       }
     }
   };
@@ -148,6 +175,40 @@ export default function Budgets(){
 
   return (
     <div className="budgets-page">
+      {/* Message notification */}
+      {message.text && (
+        <div style={{
+          padding: '16px 20px',
+          marginBottom: '20px',
+          borderRadius: '12px',
+          background: message.type === 'success' 
+            ? (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)')
+            : (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)'),
+          border: `1px solid ${message.type === 'success' ? '#10b981' : '#ef4444'}`,
+          color: message.type === 'success' ? '#10b981' : '#ef4444',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {message.type === 'success' ? '✅' : '⚠️'} {message.text}
+          </span>
+          <button
+            onClick={() => setMessage({ type: '', text: '' })}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+              fontSize: '18px',
+              padding: '0 4px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       {/* Enhanced Header */}
       <div
         className="page-title-card"

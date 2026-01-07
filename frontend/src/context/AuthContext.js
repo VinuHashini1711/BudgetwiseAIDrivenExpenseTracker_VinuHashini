@@ -83,17 +83,15 @@ export function AuthProvider({ children }) {
         localStorage.setItem('bw_token', token);
         localStorage.setItem('bw_user', JSON.stringify(newUser));
         setUser(newUser);
-
-        // ✅ User feedback
-        alert(message || 'Registration successful!');
       }
 
-      return { success: true, data: res.data };
+      // Return success with message - let component handle the display
+      return { success: true, data: res.data, message: message || 'Registration successful! Welcome to BudgetWise.' };
     } catch (err) {
       const errorMsg =
-        err.response?.data?.message || err.response?.data || 'Registration failed';
+        err.response?.data?.message || err.response?.data || 'Registration failed. Please try again.';
       console.error('Registration failed:', errorMsg);
-      alert(errorMsg);
+      // Return error - let component handle the display
       return {
         success: false,
         error: errorMsg,
