@@ -65,6 +65,14 @@ frontend/
 
 ## 🚀 Getting Started
 
+### ⚠️ Important: First-Time Setup
+
+**Before running the application, you MUST configure your credentials!**
+
+1. **Read the [SETUP.md](SETUP.md) guide** for detailed instructions
+2. Copy `backend/src/main/resources/application.properties.example` to `application.properties`
+3. Update the file with your database credentials, JWT secret, and email settings
+
 ### Prerequisites
 - **Java 17** or higher
 - **Node.js 16+** and npm
@@ -74,18 +82,18 @@ frontend/
 
 ### Database Setup
 
+**See [SETUP.md](SETUP.md) for detailed setup instructions.**
+
 1. Install PostgreSQL and create a database:
 ```sql
-CREATE DATABASE budgetwise_db;
-CREATE USER budgetwise_user WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE budgetwise_db TO budgetwise_user;
+CREATE DATABASE budgetwise;
 ```
 
-2. Update `backend/src/main/resources/application.properties`:
-```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/budgetwise_db
-spring.datasource.username=budgetwise_user
-spring.datasource.password=your_password
+2. Copy and configure `backend/src/main/resources/application.properties`:
+```bash
+cd backend/src/main/resources
+copy application.properties.example application.properties
+# Edit application.properties with your credentials
 ```
 
 ### Backend Setup
@@ -237,17 +245,15 @@ The optimized build will be in the `frontend/build` directory.
 - SQL injection prevention
 - XSS protection
 - CAPTCHA for registration
+- **Environment-based configuration** - sensitive data kept out of source control
 
 ## 🌐 Environment Variables
 
-Create a `.env` file in the backend directory:
-```env
-DB_URL=jdbc:postgresql://localhost:5432/budgetwise_db
-DB_USERNAME=budgetwise_user
-DB_PASSWORD=your_password
-JWT_SECRET=your_jwt_secret_key
-OLLAMA_API_URL=http://localhost:11434
-```
+**Important:** Never commit `application.properties` with real credentials!
+
+Use the provided `application.properties.example` as a template.
+
+See [SETUP.md](SETUP.md) for detailed configuration instructions.
 
 ## 📝 License
 

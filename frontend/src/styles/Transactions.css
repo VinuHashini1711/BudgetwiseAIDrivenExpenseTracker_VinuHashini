@@ -753,63 +753,70 @@ body:not([style*="background: rgb(15, 23, 42)"]) .empty-state {
   color: #9ca3af;
 }
 
-body:not([style*="background: rgb(15, 23, 42)"]) .modal-content {
+body[data-theme="light"] .modal-content {
   background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
   border: 1px solid #e5e7eb;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
 }
 
-body:not([style*="background: rgb(15, 23, 42)"]) .modal-header {
+body[data-theme="light"] .modal-header {
   border-bottom: 1px solid #e5e7eb;
 }
 
-body:not([style*="background: rgb(15, 23, 42)"]) .modal-header h2 {
+body[data-theme="light"] .modal-header h2 {
   color: #1f2937;
 }
 
-body:not([style*="background: rgb(15, 23, 42)"]) .close-btn {
+body[data-theme="light"] .close-btn {
   color: #9ca3af;
 }
 
-body:not([style*="background: rgb(15, 23, 42)"]) .close-btn:hover {
+body[data-theme="light"] .close-btn:hover {
   color: #1f2937;
 }
 
-body:not([style*="background: rgb(15, 23, 42)"]) .form-group label {
+body[data-theme="light"] .form-group label {
   color: #374151;
 }
 
-body:not([style*="background: rgb(15, 23, 42)"]) .form-group input,
-body:not([style*="background: rgb(15, 23, 42)"]) .form-group select,
-body:not([style*="background: rgb(15, 23, 42)"]) .form-group textarea {
-  background: white;
-  border: 1px solid #d1d5db;
-  color: #1f2937;
+body[data-theme="light"] .form-group input,
+body[data-theme="light"] .form-group select,
+body[data-theme="light"] .form-group textarea {
+  background: white !important;
+  border: 1px solid #d1d5db !important;
+  color: #1f2937 !important;
 }
 
-body:not([style*="background: rgb(15, 23, 42)"]) .form-group input::placeholder,
-body:not([style*="background: rgb(15, 23, 42)"]) .form-group textarea::placeholder {
+body[data-theme="light"] .form-group input[type="number"],
+body[data-theme="light"] .form-group input[type="date"] {
+  background: #ffffff !important;
+  color: #1f2937 !important;
+  color-scheme: light !important;
+}
+
+body[data-theme="light"] .form-group input::placeholder,
+body[data-theme="light"] .form-group textarea::placeholder {
   color: #d1d5db;
 }
 
-body:not([style*="background: rgb(15, 23, 42)"]) .form-group input:focus,
-body:not([style*="background: rgb(15, 23, 42)"]) .form-group select:focus,
-body:not([style*="background: rgb(15, 23, 42)"]) .form-group textarea:focus {
+body[data-theme="light"] .form-group input:focus,
+body[data-theme="light"] .form-group select:focus,
+body[data-theme="light"] .form-group textarea:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-body:not([style*="background: rgb(15, 23, 42)"]) .modal-actions {
+body[data-theme="light"] .modal-actions {
   border-top: 1px solid #e5e7eb;
 }
 
-body:not([style*="background: rgb(15, 23, 42)"]) .btn.secondary {
+body[data-theme="light"] .btn.secondary {
   background-color: #f3f4f6;
   color: #374151;
   border: 1px solid #d1d5db;
 }
 
-body:not([style*="background: rgb(15, 23, 42)"]) .btn.secondary:hover {
+body[data-theme="light"] .btn.secondary:hover {
   background-color: #e5e7eb;
   border-color: #9ca3af;
 }

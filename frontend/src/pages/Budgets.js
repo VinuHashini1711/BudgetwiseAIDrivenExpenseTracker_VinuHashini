@@ -101,19 +101,32 @@ export default function Budgets(){
   };
 
   const handleOpenModal = (budget = null) => {
+    const today = new Date().toISOString().split('T')[0];
+    const futureDate = new Date(new Date().getTime() + 30*24*60*60*1000).toISOString().split('T')[0];
+    
     if (budget) {
       setEditing(budget.id);
-      setForm({ category: budget.name, amount: budget.limit.toString() });
+      setForm({ 
+        category: budget.name, 
+        amount: budget.limit.toString(),
+        startDate: today,
+        endDate: futureDate
+      });
     } else {
       setEditing(null);
-      setForm({ category: '', amount: '' });
+      setForm({ 
+        category: '', 
+        amount: '',
+        startDate: today,
+        endDate: futureDate
+      });
     }
     setShowModal(true);
   };
 
   const handleCloseModal = () => {
     setShowModal(false);
-    setForm({ category: '', amount: '' });
+    setForm({ category: '', amount: '', startDate: '', endDate: '' });
     setEditing(null);
   };
 
@@ -131,18 +144,22 @@ export default function Budgets(){
         // Update budget
         await axios.put(`/api/budgets/${editing}`, {
           category: form.category,
-          amount: Number(form.amount)
+          amount: Number(form.amount),
+          startDate: form.startDate,
+          endDate: form.endDate
         });
         setMessage({ type: 'success', text: 'Budget updated successfully!' });
       } else {
         // Create new budget
         await axios.post('/api/budgets', {
           category: form.category,
-          amount: Number(form.amount)
+          amount: Number(form.amount),
+          startDate: form.startDate,
+          endDate: form.endDate
         });
         setMessage({ type: 'success', text: 'Budget created successfully!' });
       }
-      setForm({category:'', amount:''}); 
+      setForm({category:'', amount:'', startDate: '', endDate: ''}); 
       handleCloseModal();
       load();  // Reload to recalculate spent amounts from transactions
     } catch (error) {

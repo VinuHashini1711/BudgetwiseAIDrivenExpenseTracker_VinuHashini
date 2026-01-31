@@ -186,12 +186,14 @@ public class ExportController {
             
             System.out.println("Importing file as format: " + format);
             
-            // Call import service
+            // Call import service (no longer throws exceptions)
             Map<String, Object> result = exportImportService.importData(format, file.getInputStream(), options);
             
             System.out.println("Import result: " + result);
             
-            if (result.containsKey("success") && !(boolean) result.get("success")) {
+            // Check if import was successful
+            Boolean success = (Boolean) result.getOrDefault("success", true);
+            if (!success) {
                 return ResponseEntity.status(400).body(result);
             }
             

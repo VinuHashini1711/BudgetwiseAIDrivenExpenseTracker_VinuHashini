@@ -33,6 +33,8 @@ instance.interceptors.response.use(
   },
   (error) => {
     console.error("Response error:", error.response?.status, error.response?.data);
+    // Don't auto-redirect here - let ProtectedRoute and components handle auth errors
+    // Just log the error and pass it through
     return Promise.reject(error);
   }
 );

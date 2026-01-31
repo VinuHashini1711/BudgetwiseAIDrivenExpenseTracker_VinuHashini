@@ -29,14 +29,13 @@ function AppContent() {
   // Pages where Sidebar should be hidden
   const noSidebarRoutes = ['/login', '/register', '/welcome', '/reset-password', '/', '/home'];
 
-  // Force redirect to Welcome/Home page unless user is authenticated
-  // If not authenticated, ALWAYS redirect to home (/) first
-  if (!user && location.pathname !== '/' && location.pathname !== '/login' && location.pathname !== '/register' && location.pathname !== '/reset-password') {
+  // Force redirect to Welcome page for unauthenticated users trying to access protected routes
+  if (!user && location.pathname !== '/' && location.pathname !== '/login' && location.pathname !== '/register' && location.pathname !== '/reset-password' && location.pathname !== '/welcome') {
     return (
       <div className="app">
         <div className="container">
           <Routes>
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/welcome" replace />} />
           </Routes>
         </div>
       </div>
@@ -53,14 +52,16 @@ function AppContent() {
 
       <div className={`container ${noSidebarRoutes.includes(location.pathname) ? 'no-sidebar' : ''}`}>
         <Routes>
-          {/* Root path - Shows Welcome if not authenticated, Home if authenticated */}
+          {/* Root path - Always redirect to welcome or home */}
           <Route
             path="/"
-            element={
-              user
-                ? <Navigate to="/home" replace />
-                : <Welcome />
-            }
+            element={<Navigate to={user ? "/home" : "/welcome"} replace />}
+          />
+          
+          {/* Welcome page - shown to non-authenticated users */}
+          <Route 
+            path="/welcome" 
+            element={user ? <Navigate to="/home" replace /> : <Welcome />} 
           />
 
           {/* Home page - Overview of BudgetWise (after login) */}

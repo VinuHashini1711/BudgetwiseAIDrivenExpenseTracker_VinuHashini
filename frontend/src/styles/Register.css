@@ -105,11 +105,19 @@ html, body {
 
 .register-form-group label,
 .form-row label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: #cbd5e1;
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+/* Ensure label icons/emoji also appear white */
+.register-form-group label span,
+.form-row label span {
+  color: #ffffff !important;
+  opacity: 1 !important;
 }
 
 /* ===============================
@@ -210,14 +218,20 @@ html, body {
 .auth-link {
   text-align: center;
   font-size: 14px;
-  color: #cbd5e1;
+  color: #e2e8f0;
 }
 
 .register-form-link a,
 .auth-link a {
-  color: #a78bfa;
+  color: #c4b5fd;
   font-weight: 700;
   text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.register-form-link a:hover,
+.auth-link a:hover {
+  color: #e9d5ff;
 }
 
 /* ===============================

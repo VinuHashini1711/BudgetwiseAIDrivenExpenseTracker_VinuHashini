@@ -28,6 +28,7 @@ backend/*.ipr
 backend/HELP.md
 backend/.env
 backend/src/main/resources/application-local.properties
+backend/src/main/resources/application.properties
 
 # IDE - VSCode
 .vscode/*
@@ -40,17 +41,14 @@ backend/src/main/resources/application-local.properties
 .DS_Store
 Thumbs.db
 
-# Documentation files (optional - can be shared if needed)
-AI_SETUP_GUIDE.md
-GMAIL_SETUP_GUIDE.md
-IMPLEMENTATION_COMPLETE.md
-OLLAMA_AI_INTEGRATION_SUMMARY.md
-PASSWORD_RESET_SETUP.md
-QUICK_START_AI.md
-
 # Java error/crash logs
 hs_err_pid*.log
 replay_pid*.log
 
 # Test files
-test-import.json
+test*.json
+test*.ps1
+
+# Uploads directory (contains user uploaded files)
+backend/uploads/*
+!backend/uploads/.gitkeep

@@ -17,6 +17,7 @@ import com.itextpdf.text.pdf.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.BufferedReader;
@@ -32,6 +33,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+import com.itextpdf.text.pdf.parser.PdfTextExtractor;
 import java.util.stream.Collectors;
 
 @Service
@@ -966,223 +970,418 @@ public class ExportImportService {
 
     // ==================== IMPORT METHODS ====================
 
-    @Transactional
-    public Map<String, Object> importData(String format, InputStream inputStream, Map<String, Boolean> options) throws Exception {
-        User user = getCurrentUser();
+    public Map<String, Object> importData(String format, InputStream inputStream, Map<String, Boolean> options) {
+        Map<String, Object> result = new HashMap<>();
         
-        switch (format.toLowerCase()) {
-            case "csv":
-                return importFromCsv(user, inputStream, options);
-            case "json":
-                return importFromJson(user, inputStream, options);
-            case "pdf":
-                return importFromPdf(user, inputStream, options);
-            default:
-                throw new IllegalArgumentException("Unsupported import format: " + format);
+        try {
+            User user = getCurrentUser();
+            System.out.println("[PDF IMPORT] Starting import for user: " + user.getUsername());
+            
+            switch (format.toLowerCase()) {
+                case "csv":
+                    return importFromCsv(user, inputStream, options);
+                case "json":
+                    return importFromJson(user, inputStream, options);
+                case "pdf":
+                    return importFromPdf(user, inputStream, options);
+                default:
+                    result.put("success", false);
+                    result.put("message", "Unsupported import format: " + format);
+                    return result;
+            }
+        } catch (Exception e) {
+            System.err.println("Import error: " + e.getMessage());
+            e.printStackTrace();
+            
+            result.put("success", false);
+            result.put("message", "Import failed: " + e.getMessage());
+            result.put("transactionsImported", 0);
+            result.put("budgetsImported", 0);
+            result.put("goalsImported", 0);
+            
+            return result;
         }
     }
 
-    private Map<String, Object> importFromPdf(User user, InputStream inputStream, Map<String, Boolean> options) throws Exception {
+    private Map<String, Object> importFromPdf(User user, InputStream inputStream, Map<String, Boolean> options) {
         Map<String, Object> result = new HashMap<>();
         int transactionsImported = 0;
         int budgetsImported = 0;
         int goalsImported = 0;
-        List<String> errors = new ArrayList<>();
 
         try {
-            // Read PDF content using iText PdfReader
+            // Use iText PdfReader for structured extraction
             PdfReader reader = new PdfReader(inputStream);
-            StringBuilder textContent = new StringBuilder();
+            StringBuilder fullText = new StringBuilder();
             
-            for (int i = 1; i <= reader.getNumberOfPages(); i++) {
-                textContent.append(com.itextpdf.text.pdf.parser.PdfTextExtractor.getTextFromPage(reader, i));
-                textContent.append("\n");
+            for (int page = 1; page <= reader.getNumberOfPages(); page++) {
+                String pageText = PdfTextExtractor.getTextFromPage(reader, page);
+                fullText.append(pageText).append("\n\n");
             }
             reader.close();
             
-            String content = textContent.toString();
+            String content = fullText.toString();
+            System.out.println("[PDF IMPORT] PDF content length: " + content.length());
+            System.out.println("[PDF IMPORT] First 500 chars:\n" + content.substring(0, Math.min(500, content.length())));
+            
             String[] lines = content.split("\n");
+            boolean inTransactionTable = false;
+            boolean inBudgetTable = false;
+            boolean inGoalTable = false;
             
-            String currentSection = "";
-            boolean skipHeaderLine = false;
-            
-            for (String line : lines) {
-                line = line.trim();
-                if (line.isEmpty()) continue;
+            for (int lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+                String line = lines[lineIdx].trim();
+                if (line.isEmpty() || line.length() < 2) continue;
                 
                 // Detect sections
-                if (line.toUpperCase().contains("TRANSACTION") && (line.toUpperCase().contains("HISTORY") || line.toUpperCase().contains("SUMMARY"))) {
-                    currentSection = "transactions";
-                    skipHeaderLine = true;
+                if (line.toUpperCase().contains("TRANSACTION HISTORY") ||
+                    (line.toUpperCase().contains("TRANSACTION") && line.toUpperCase().contains("HISTORY"))) {
+                    inTransactionTable = true;
+                    inBudgetTable = false;
+                    inGoalTable = false;
+                    System.out.println("[PDF IMPORT] Entered TRANSACTION section");
                     continue;
-                } else if (line.toUpperCase().contains("BUDGET") && (line.toUpperCase().contains("OVERVIEW") || line.toUpperCase().contains("SUMMARY") || line.toUpperCase().contains("STATUS"))) {
-                    currentSection = "budgets";
-                    skipHeaderLine = true;
+                }
+                if ((line.toUpperCase().contains("BUDGET OVERVIEW") || line.toUpperCase().contains("BUDGET"))
+                        && !line.toUpperCase().contains("TRANSACTION")) {
+                    inBudgetTable = true;
+                    inTransactionTable = false;
+                    inGoalTable = false;
+                    System.out.println("[PDF IMPORT] Entered BUDGET section");
                     continue;
-                } else if (line.toUpperCase().contains("GOAL") && (line.toUpperCase().contains("PROGRESS") || line.toUpperCase().contains("SAVINGS"))) {
-                    currentSection = "goals";
-                    skipHeaderLine = true;
+                }
+                if (line.toUpperCase().contains("SAVINGS GOALS") ||
+                    (line.toUpperCase().contains("GOALS") && !line.toUpperCase().contains("TRANSACTION")) ||
+                    (line.toUpperCase().contains("GOAL") && !line.toUpperCase().contains("TRANSACTION"))) {
+                    inGoalTable = true;
+                    inTransactionTable = false;
+                    inBudgetTable = false;
+                    System.out.println("[PDF IMPORT] Entered GOAL section");
                     continue;
                 }
                 
-                // Skip table header lines
-                if (skipHeaderLine && (line.toUpperCase().contains("DATE") || line.toUpperCase().contains("CATEGORY") || 
-                    line.toUpperCase().contains("DESCRIPTION") || line.toUpperCase().contains("AMOUNT") ||
-                    line.toUpperCase().contains("TYPE") || line.toUpperCase().contains("METHOD"))) {
-                    skipHeaderLine = false;
+                // Skip headers and metadata
+                if (isHeaderLine(line)) {
                     continue;
                 }
-                skipHeaderLine = false;
                 
-                // Parse transaction lines - handle various formats from PDF extraction
-                if (currentSection.equals("transactions") && options.getOrDefault("transactions", false)) {
-                    try {
-                        // PDF table extraction often produces space-separated values
-                        // Look for lines with date patterns: "Jan 05, 2026", "2026-01-05", "05/01/2026"
-                        if (line.matches(".*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\\s+\\d{1,2},?\\s+\\d{4}.*") ||
-                            line.matches(".*\\d{4}-\\d{2}-\\d{2}.*") ||
-                            line.matches(".*\\d{1,2}/\\d{1,2}/\\d{4}.*")) {
-                            
-                            String[] parts = line.split("\\s{2,}"); // Split by multiple spaces
-                            if (parts.length >= 4) {
-                                String dateStr = parts[0].trim();
-                                String description = parts[1].trim();
-                                String category = parts[2].trim();
-                                String typeStr = parts.length > 3 ? parts[3].trim().toUpperCase() : "EXPENSE";
-                                String amountStr = parts.length > 4 ? parts[4].trim().replaceAll("[^\\d.,]", "") : "0";
-                                
-                                // Clean up amount - remove commas, handle decimal
-                                amountStr = amountStr.replace(",", "");
-                                if (amountStr.isEmpty()) amountStr = "0";
-                                
-                                LocalDateTime date = parseFlexibleDate(dateStr);
-                                BigDecimal amount = new BigDecimal(amountStr);
-                                
-                                // Determine type from the parsed text or default
-                                String type = typeStr.contains("INCOME") ? "INCOME" : "EXPENSE";
-                                
-                                if (amount.compareTo(BigDecimal.ZERO) > 0 && !description.isEmpty()) {
-                                    Transaction transaction = Transaction.builder()
-                                            .description(description)
-                                            .amount(amount.abs())
-                                            .category(category)
-                                            .date(date != null ? date : LocalDateTime.now())
-                                            .type(type)
-                                            .currency("INR")
-                                            .user(user)
-                                            .build();
-                                    transactionRepository.save(transaction);
-                                    transactionsImported++;
-                                }
+                // Parse transactions - Format: Date | Description | Category | Type | Amount | Method
+                if (inTransactionTable && options.getOrDefault("transactions", false)) {
+                    if (isTransactionDataLine(line)) {
+                        try {
+                            System.out.println("[PDF IMPORT] Attempting transaction: " + line);
+                            Transaction tx = parseTransactionLine(line, user);
+                            if (tx != null) {
+                                saveTransaction(tx);
+                                System.out.println("[PDF IMPORT] ✓ Saved transaction: " + tx.getDescription() + " - " + tx.getAmount());
+                                transactionsImported++;
                             }
+                        } catch (Exception e) {
+                            System.err.println("[PDF IMPORT] Transaction error: " + e.getMessage());
                         }
-                    } catch (Exception e) {
-                        // Skip invalid lines silently
                     }
                 }
                 
-                // Parse budget lines
-                if (currentSection.equals("budgets") && options.getOrDefault("budgets", false)) {
-                    try {
-                        // Skip header-like lines
-                        if (line.toUpperCase().contains("CATEGORY") || line.toUpperCase().contains("BUDGET") || 
-                            line.toUpperCase().contains("SPENT") || line.toUpperCase().contains("REMAINING")) {
-                            continue;
-                        }
-                        
-                        // Look for budget data: Category  Amount  Spent  Remaining
-                        String[] parts = line.split("\\s{2,}");
-                        if (parts.length >= 2) {
-                            String category = parts[0].trim();
-                            String amountStr = parts[1].trim().replaceAll("[^\\d.,]", "").replace(",", "");
-                            
-                            if (!category.isEmpty() && !amountStr.isEmpty() && amountStr.matches("\\d+\\.?\\d*")) {
-                                BigDecimal amount = new BigDecimal(amountStr);
-                                if (amount.compareTo(BigDecimal.ZERO) > 0) {
-                                    Budget budget = Budget.builder()
-                                            .category(category)
-                                            .amount(amount)
-                                            .startDate(LocalDate.now().withDayOfMonth(1))
-                                            .endDate(LocalDate.now().withDayOfMonth(1).plusMonths(1).minusDays(1))
-                                            .user(user)
-                                            .build();
-                                    budgetRepository.save(budget);
-                                    budgetsImported++;
-                                }
+                // Parse budgets - Format: Category | Budget | Spent | Remaining | Status
+                if (inBudgetTable && options.getOrDefault("budgets", false)) {
+                    if (isBudgetDataLine(line)) {
+                        try {
+                            System.out.println("[PDF IMPORT] Attempting budget: " + line);
+                            Budget bdg = parseBudgetLine(line, user);
+                            if (bdg != null) {
+                                saveBudget(bdg);
+                                System.out.println("[PDF IMPORT] ✓ Saved budget: " + bdg.getCategory() + " - " + bdg.getAmount());
+                                budgetsImported++;
                             }
+                        } catch (Exception e) {
+                            System.err.println("[PDF IMPORT] Budget error: " + e.getMessage());
                         }
-                    } catch (Exception e) {
-                        // Skip invalid lines silently
                     }
                 }
                 
-                // Parse goal lines
-                if (currentSection.equals("goals") && options.getOrDefault("goals", false)) {
-                    try {
-                        // Skip header-like lines
-                        if (line.toUpperCase().contains("GOAL NAME") || line.toUpperCase().contains("TARGET") || 
-                            line.toUpperCase().contains("PROGRESS") || line.toUpperCase().contains("DEADLINE")) {
-                            continue;
-                        }
-                        
-                        String[] parts = line.split("\\s{2,}");
-                        if (parts.length >= 2) {
-                            String goalName = parts[0].trim();
-                            String targetStr = parts[1].trim().replaceAll("[^\\d.,]", "").replace(",", "");
-                            String currentStr = parts.length > 2 ? parts[2].trim().replaceAll("[^\\d.,]", "").replace(",", "") : "0";
+                // Parse goals - These are multi-line blocks
+                if (inGoalTable && options.getOrDefault("goals", false)) {
+                    if (isGoalStartLine(line)) {
+                        try {
+                            System.out.println("[PDF IMPORT] Attempting goal block starting with: " + line);
+                            // Collect the goal block lines
+                            List<String> goalLines = new ArrayList<>();
+                            goalLines.add(line);
                             
-                            if (!goalName.isEmpty() && !targetStr.isEmpty() && targetStr.matches("\\d+\\.?\\d*") &&
-                                !goalName.toUpperCase().contains("GOAL") && !goalName.toUpperCase().contains("NAME")) {
-                                Double target = Double.parseDouble(targetStr);
-                                Double current = currentStr.isEmpty() || !currentStr.matches("\\d+\\.?\\d*") ? 0.0 : Double.parseDouble(currentStr);
-                                
-                                if (target > 0) {
-                                    Goal goal = Goal.builder()
-                                            .goalName(goalName)
-                                            .category("Savings")
-                                            .targetAmount(target)
-                                            .currentAmount(current)
-                                            .deadline(LocalDate.now().plusMonths(6))
-                                            .priority("Medium")
-                                            .createdAt(LocalDate.now())
-                                            .user(user)
-                                            .build();
-                                    goalRepository.save(goal);
-                                    goalsImported++;
-                                }
+                            // Collect next few lines that might belong to this goal
+                            for (int i = lineIdx + 1; i < Math.min(lineIdx + 10, lines.length); i++) {
+                                String nextLine = lines[i].trim();
+                                if (nextLine.isEmpty()) break;
+                                if (isGoalStartLine(nextLine)) break; // Next goal
+                                if (isHeaderLine(nextLine)) break;
+                                goalLines.add(nextLine);
                             }
+                            
+                            Goal gl = parseGoalBlock(goalLines, user);
+                            if (gl != null) {
+                                saveGoal(gl);
+                                System.out.println("[PDF IMPORT] ✓ Saved goal: " + gl.getGoalName() + " - " + gl.getTargetAmount());
+                                goalsImported++;
+                            }
+                        } catch (Exception e) {
+                            System.err.println("[PDF IMPORT] Goal error: " + e.getMessage());
                         }
-                    } catch (Exception e) {
-                        // Skip invalid lines silently
                     }
                 }
             }
             
-            // Provide helpful message if nothing was imported
-            if (transactionsImported == 0 && budgetsImported == 0 && goalsImported == 0) {
+            System.out.println("[PDF IMPORT] ===== IMPORT COMPLETE =====");
+            System.out.println("[PDF IMPORT] Transactions: " + transactionsImported);
+            System.out.println("[PDF IMPORT] Budgets: " + budgetsImported);
+            System.out.println("[PDF IMPORT] Goals: " + goalsImported);
+            
+            if (transactionsImported > 0 || budgetsImported > 0 || goalsImported > 0) {
                 result.put("success", true);
-                result.put("message", "PDF was read successfully but no data could be extracted. " +
-                        "Note: PDF import works best with BudgetWise exported PDFs. " +
-                        "For best results, use JSON or CSV format for importing data.");
-            } else {
-                result.put("success", true);
-                result.put("message", String.format("PDF import completed! Imported %d transactions, %d budgets, %d goals.", 
+                result.put("message", String.format("✓ Import successful! %d transactions, %d budgets, %d goals imported.", 
                         transactionsImported, budgetsImported, goalsImported));
+            } else {
+                result.put("success", false);
+                result.put("message", "PDF was read but no data found. Please export your data as JSON or CSV for better results.");
             }
+            
             result.put("transactionsImported", transactionsImported);
             result.put("budgetsImported", budgetsImported);
             result.put("goalsImported", goalsImported);
-            if (!errors.isEmpty()) {
-                result.put("warnings", errors);
-            }
             
         } catch (Exception e) {
+            System.err.println("[PDF IMPORT] CRITICAL ERROR: " + e.getMessage());
+            e.printStackTrace();
             result.put("success", false);
-            result.put("message", "Failed to parse PDF file. Please ensure it's a valid BudgetWise export file. For best results, use JSON or CSV format.");
+            result.put("message", "PDF import failed. Please try JSON or CSV format.");
             result.put("error", e.getMessage());
         }
         
         return result;
+    }
+    
+    private boolean isHeaderLine(String line) {
+        String upper = line.toUpperCase();
+        return upper.contains("DATE") || upper.contains("DESCRIPTION") ||
+               upper.contains("CATEGORY") || upper.contains("TYPE") ||
+               upper.contains("AMOUNT") || upper.contains("BUDGETWISE") ||
+               upper.contains("FINANCIAL") || upper.contains("REPORT") ||
+               upper.contains("GENERATED") || line.contains("---") ||
+               line.contains("===") || upper.contains("USER:") ||
+               upper.contains("EMAIL") || upper.contains("METHOD") ||
+               upper.contains("BUDGET") || upper.contains("SPENT") ||
+               upper.contains("REMAINING") || upper.contains("STATUS") ||
+               upper.contains("HISTORY") || upper.contains("OVERVIEW") ||
+               upper.contains("GOALS");
+    }
+    
+    private boolean isTransactionDataLine(String line) {
+        // Detect lines that look like table rows: contain a date and an amount
+        String u = line.toUpperCase();
+        boolean looksLikeRow = !line.matches("^[A-Za-z\\s]*$");
+        boolean hasAmount = line.matches(".*[+-]?\\$?\\d+[.,]\\d{2}.*");
+        boolean hasDateLike = line.matches(".*\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}.*") ||
+                u.matches(".*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC).*\\d{1,2}.*");
+        return looksLikeRow && hasAmount && hasDateLike;
+    }
+    
+    private Transaction parseTransactionLine(String line, User user) {
+        // Target layout from exported PDF table:
+        // Date | Description | Category | Type | Amount | Method
+        try {
+            // Primary regex parse for the exact table order
+            Pattern p = Pattern.compile(
+                    "^(?<date>[A-Za-z]{3}\\s+\\d{1,2},\\s*\\d{4})\\s+" +
+                    "(?<desc>.+?)\\s+" +
+                    "(?<cat>\\S+)\\s+" +
+                    "(?<type>(?i)income|expense)\\s+" +
+                    "(?<amt>[+-]?\\$?[\\d,]*\\.\\d{2})\\s+" +
+                    "(?<method>\\S+)$");
+            Matcher m = p.matcher(line);
+            if (m.find()) {
+                String datePart = m.group("date");
+                String descriptionPart = m.group("desc");
+                String categoryPart = m.group("cat");
+                String typePart = m.group("type");
+                String amountPart = m.group("amt");
+                String methodPart = m.group("method");
+
+                LocalDateTime transactionDate = parseFlexibleDate(datePart);
+
+                BigDecimal amount = BigDecimal.ZERO;
+                if (!amountPart.isEmpty()) {
+                    String cleanAmount = amountPart.replaceAll("[^0-9.,+-]", "").replace(",", "");
+                    if (!cleanAmount.isEmpty()) {
+                        amount = new BigDecimal(cleanAmount);
+                    }
+                }
+                if (amount.compareTo(BigDecimal.ZERO) == 0) return null;
+
+                String desc = descriptionPart.trim();
+                if (desc.isEmpty()) desc = "Transaction";
+                if (desc.length() > 100) desc = desc.substring(0, 100);
+
+                return Transaction.builder()
+                        .description(desc)
+                        .amount(amount.abs())
+                        .category(categoryPart == null || categoryPart.isEmpty() ? "Other" : categoryPart)
+                        .date(transactionDate)
+                        .type(typePart.toUpperCase().contains("INCOME") ? "INCOME" : "EXPENSE")
+                        .currency("INR")
+                        .paymentMethod(methodPart == null || methodPart.isEmpty() ? null : methodPart)
+                        .user(user)
+                        .build();
+            }
+
+            // Fallback: split by 2+ spaces or pipes and map positionally when 6+ columns
+            String[] parts = line.split("\\s*\\|\\s*|\\s{2,}");
+            if (parts.length >= 6) {
+                String datePart = (parts[0] + " " + parts[1] + " " + parts[2]).trim(); // handles Jan 24, 2026 split
+                String desc = parts[3].trim();
+                String cat = parts[4].trim();
+                String typePart = parts[5].trim();
+                String amountPart = parts.length > 6 ? parts[6].trim() : parts[5].trim();
+                String methodPart = parts.length > 7 ? parts[7].trim() : (parts.length > 6 ? parts[6].trim() : "");
+
+                LocalDateTime transactionDate = parseFlexibleDate(datePart);
+                BigDecimal amount = BigDecimal.ZERO;
+                String cleanAmount = amountPart.replaceAll("[^0-9.,+-]", "").replace(",", "");
+                if (!cleanAmount.isEmpty()) {
+                    amount = new BigDecimal(cleanAmount);
+                }
+                if (amount.compareTo(BigDecimal.ZERO) == 0) return null;
+
+                if (desc.isEmpty()) desc = "Transaction";
+                if (desc.length() > 100) desc = desc.substring(0, 100);
+
+                return Transaction.builder()
+                        .description(desc)
+                        .amount(amount.abs())
+                        .category(cat.isEmpty() ? "Other" : cat)
+                        .date(transactionDate)
+                        .type(typePart.toUpperCase().contains("INCOME") ? "INCOME" : "EXPENSE")
+                        .currency("INR")
+                        .paymentMethod(methodPart.isEmpty() ? null : methodPart)
+                        .user(user)
+                        .build();
+            }
+        } catch (Exception e) {
+            System.err.println("[PDF IMPORT] Failed to parse transaction: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
+    }
+    
+    private boolean isBudgetDataLine(String line) {
+        // Must have a dollar amount
+        return line.matches(".*\\$?\\d+.*") && !line.matches("^[A-Za-z\\s]*$") && !line.matches(".*[%].*");
+    }
+    
+    private Budget parseBudgetLine(String line, User user) {
+        // Expected layout: Category | Budget | Spent | Remaining | Status
+        try {
+            Pattern p = Pattern.compile(
+                    "^(?<cat>.+?)\\s+\\$?(?<budget>[\\d,]*\\.\\d{2})\\s+\\$?(?<spent>[\\d,]*\\.\\d{2})\\s+\\$?(?<rem>[\\d,]*\\.\\d{2})\\s+(?<status>.+)$");
+            Matcher m = p.matcher(line);
+            if (m.find()) {
+                String category = m.group("cat").trim();
+                BigDecimal amount = new BigDecimal(m.group("budget").replace(",", ""));
+                if (category.length() > 50) category = category.substring(0, 50);
+                if (amount.compareTo(BigDecimal.ZERO) > 0) {
+                    return Budget.builder()
+                            .category(category.isEmpty() ? "Other" : category)
+                            .amount(amount)
+                            .startDate(LocalDate.now().withDayOfMonth(1))
+                            .endDate(LocalDate.now().withDayOfMonth(1).plusMonths(1).minusDays(1))
+                            .user(user)
+                            .build();
+                }
+            }
+
+            // Fallback: previous heuristic
+            String[] parts = line.split("\\s*\\|\\s*|\\s{2,}");
+            if (parts.length >= 2) {
+                String category = parts[0].trim();
+                String amountStr = "";
+                for (String part : parts) {
+                    if (part.matches(".*\\$?\\d+[.,]\\d{2}.*")) {
+                        amountStr = part.replaceAll("[^0-9.,+-]", "").trim();
+                        break;
+                    }
+                }
+                if (!amountStr.isEmpty() && !category.isEmpty()) {
+                    amountStr = amountStr.replace(",", "");
+                    BigDecimal amount = new BigDecimal(amountStr);
+                    if (amount.compareTo(BigDecimal.ZERO) > 0) {
+                        if (category.length() > 50) category = category.substring(0, 50);
+                        return Budget.builder()
+                                .category(category)
+                                .amount(amount)
+                                .startDate(LocalDate.now().withDayOfMonth(1))
+                                .endDate(LocalDate.now().withDayOfMonth(1).plusMonths(1).minusDays(1))
+                                .user(user)
+                                .build();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[PDF IMPORT] Failed to parse budget: " + e.getMessage());
+        }
+        return null;
+    }
+    
+    private boolean isGoalStartLine(String line) {
+        // Goals start with name (contains letters) and may have numbers but not pure headers
+        return line.matches("^[A-Za-z][A-Za-z0-9\\s]*$") && !isHeaderLine(line) && line.length() > 2;
+    }
+    
+    private Goal parseGoalBlock(List<String> lines, User user) {
+        if (lines.isEmpty()) return null;
+        
+        try {
+            String goalName = lines.get(0).trim();
+            if (goalName.isEmpty()) return null;
+            
+            if (goalName.length() > 100) {
+                goalName = goalName.substring(0, 100);
+            }
+            
+            double targetAmount = 0;
+            double currentAmount = 0;
+            
+            // Parse amounts from all lines in block
+            for (String line : lines) {
+                java.util.regex.Pattern amountPattern = java.util.regex.Pattern.compile("\\$(\\d+[.,]\\d{2})");
+                java.util.regex.Matcher matcher = amountPattern.matcher(line);
+                
+                while (matcher.find()) {
+                    String amount = matcher.group(1).replace(",", "");
+                    double val = Double.parseDouble(amount);
+                    if (targetAmount == 0) {
+                        targetAmount = val;
+                    } else if (currentAmount == 0) {
+                        currentAmount = val;
+                    }
+                }
+            }
+            
+            if (targetAmount <= 0) {
+                targetAmount = 1000; // Default if not found
+            }
+            
+            return Goal.builder()
+                    .goalName(goalName)
+                    .category("Savings")
+                    .targetAmount(targetAmount)
+                    .currentAmount(currentAmount)
+                    .deadline(LocalDate.now().plusMonths(6))
+                    .priority("Medium")
+                    .createdAt(LocalDate.now())
+                    .user(user)
+                    .build();
+        } catch (Exception e) {
+            System.err.println("[PDF IMPORT] Failed to parse goal: " + e.getMessage());
+        }
+        return null;
     }
 
     private LocalDateTime parseFlexibleDate(String dateStr) {
@@ -1210,7 +1409,34 @@ public class ExportImportService {
         return LocalDateTime.now();
     }
 
-    private Map<String, Object> importFromJson(User user, InputStream inputStream, Map<String, Boolean> options) throws Exception {
+    /**
+     * Save a transaction with its own transaction boundary to prevent rollback-only issues
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    private void saveTransaction(Transaction transaction) {
+        transactionRepository.saveAndFlush(transaction);
+        System.out.println("[IMPORT] ✓ Successfully saved transaction: " + transaction.getId() + " (" + transaction.getDescription() + ")");
+    }
+
+    /**
+     * Save a budget with its own transaction boundary to prevent rollback-only issues
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    private void saveBudget(Budget budget) {
+        budgetRepository.saveAndFlush(budget);
+        System.out.println("[IMPORT] ✓ Successfully saved budget: " + budget.getId() + " (" + budget.getCategory() + ")");
+    }
+
+    /**
+     * Save a goal with its own transaction boundary to prevent rollback-only issues
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    private void saveGoal(Goal goal) {
+        goalRepository.saveAndFlush(goal);
+        System.out.println("[IMPORT] ✓ Successfully saved goal: " + goal.getId() + " (" + goal.getGoalName() + ")");
+    }
+
+    private Map<String, Object> importFromJson(User user, InputStream inputStream, Map<String, Boolean> options) {
         Map<String, Object> result = new HashMap<>();
         int transactionsImported = 0;
         int budgetsImported = 0;
@@ -1239,7 +1465,7 @@ public class ExportImportService {
                                     .currency(getTextValue(tNode, "currency", "USD"))
                                     .user(user)
                                     .build();
-                            transactionRepository.save(transaction);
+                            saveTransaction(transaction);
                             transactionsImported++;
                         } catch (Exception e) {
                             errors.add("Transaction import error: " + e.getMessage());
@@ -1261,7 +1487,7 @@ public class ExportImportService {
                                     .endDate(parseDateValue(bNode, "endDate"))
                                     .user(user)
                                     .build();
-                            budgetRepository.save(budget);
+                            saveBudget(budget);
                             budgetsImported++;
                         } catch (Exception e) {
                             errors.add("Budget import error: " + e.getMessage());
@@ -1286,7 +1512,7 @@ public class ExportImportService {
                                     .createdAt(parseDateValue(gNode, "createdAt") != null ? parseDateValue(gNode, "createdAt") : LocalDate.now())
                                     .user(user)
                                     .build();
-                            goalRepository.save(goal);
+                            saveGoal(goal);
                             goalsImported++;
                         } catch (Exception e) {
                             errors.add("Goal import error: " + e.getMessage());
@@ -1315,14 +1541,15 @@ public class ExportImportService {
         return result;
     }
 
-    private Map<String, Object> importFromCsv(User user, InputStream inputStream, Map<String, Boolean> options) throws Exception {
+    private Map<String, Object> importFromCsv(User user, InputStream inputStream, Map<String, Boolean> options) {
         Map<String, Object> result = new HashMap<>();
         int transactionsImported = 0;
         int budgetsImported = 0;
         int goalsImported = 0;
         List<String> errors = new ArrayList<>();
         
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+        try {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
             String line;
             String currentSection = null;
             String[] headers = null;
@@ -1380,19 +1607,19 @@ public class ExportImportService {
                     if ("transactions".equals(currentSection) && options.getOrDefault("transactions", false)) {
                         Transaction transaction = parseTransactionFromCsv(headers, values, user);
                         if (transaction != null) {
-                            transactionRepository.save(transaction);
+                            saveTransaction(transaction);
                             transactionsImported++;
                         }
                     } else if ("budgets".equals(currentSection) && options.getOrDefault("budgets", false)) {
                         Budget budget = parseBudgetFromCsv(headers, values, user);
                         if (budget != null) {
-                            budgetRepository.save(budget);
+                            saveBudget(budget);
                             budgetsImported++;
                         }
                     } else if ("goals".equals(currentSection) && options.getOrDefault("goals", false)) {
                         Goal goal = parseGoalFromCsv(headers, values, user);
                         if (goal != null) {
-                            goalRepository.save(goal);
+                            saveGoal(goal);
                             goalsImported++;
                         }
                     }
@@ -1400,6 +1627,13 @@ public class ExportImportService {
                     errors.add("CSV line parse error: " + e.getMessage());
                 }
             }
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("message", "Failed to parse CSV file: " + e.getMessage());
+            result.put("transactionsImported", transactionsImported);
+            result.put("budgetsImported", budgetsImported);
+            result.put("goalsImported", goalsImported);
+            return result;
         }
         
         result.put("success", true);

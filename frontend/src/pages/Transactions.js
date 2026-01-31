@@ -81,23 +81,31 @@ export default function Transactions() {
   const [dateRangeEnd, setDateRangeEnd] = useState("");
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  // Initialize categories from localStorage
+    // Load categories from backend
   useEffect(() => {
-    const savedCategories = localStorage.getItem('bw_categories');
-    if (savedCategories) {
+      const loadCategories = async () => {
       try {
-        const parsedCategories = JSON.parse(savedCategories);
-        setCategories(parsedCategories);
+          const response = await axios.get('/api/categories');
+          const categoryNames = response.data.map(cat => cat.name);
+          setCategories(categoryNames);
       } catch (err) {
         console.error('Error loading categories:', err);
+          // Fallback to default categories if API fails
+          setCategories([
+            "Salary",
+            "Housing",
+            "Food",
+            "Transport",
+            "Shopping",
+            "Entertainment",
+            "Healthcare",
+            "Education",
+            "Other"
+          ]);
       }
-    }
+      };
+      loadCategories();
   }, []);
-
-  // Save categories to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('bw_categories', JSON.stringify(categories));
-  }, [categories]);
 
   // Load all transactions on mount
   useEffect(() => {
@@ -235,34 +243,71 @@ export default function Transactions() {
     }
   };
 
-  const handleOtherCategorySubmit = () => {
+    const handleOtherCategorySubmit = async () => {
     if (!newCategory.trim()) {
       setMessage({ type: 'error', text: 'Please enter a category name' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       return;
     }
     
-    // Check if category already exists
-    if (categories.includes(newCategory.trim())) {
+    // Check if category already exists (case-insensitive)
+    const normalizedNewCategory = newCategory.trim().toLowerCase();
+    if (categories.some(cat => cat.toLowerCase() === normalizedNewCategory)) {
       setMessage({ type: 'error', text: 'This category already exists' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       return;
     }
 
-    // Add new category before "Other"
-    const updatedCategories = categories.filter((c) => c !== "Other");
-    updatedCategories.push(newCategory.trim());
-    updatedCategories.push("Other");
-    
-    // Update state (which also saves to localStorage via useEffect)
-    setCategories(updatedCategories);
-    
-    // Set form category to the new category
-    setForm((f) => ({ ...f, category: newCategory.trim() }));
-    
-    // Close input and reset
-    setShowOtherCategoryInput(false);
-    setNewCategory("");
-    
-    setMessage({ type: 'success', text: `Category "${newCategory.trim()}" added successfully!` });
+    try {
+      // Verify user is logged in
+      const token = localStorage.getItem('bw_token') || localStorage.getItem('token');
+      if (!token) {
+        setMessage({ type: 'error', text: 'Please login to add categories' });
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+        return;
+      }
+
+      // Save to backend
+      const response = await axios.post('/api/categories', {
+        name: newCategory.trim()
+      });
+      
+      console.log('Category saved successfully:', response.data);
+      
+      // Reload all categories from backend to ensure they're in sync
+      const categoriesResponse = await axios.get('/api/categories');
+      const categoryNames = categoriesResponse.data.map(cat => cat.name);
+      setCategories(categoryNames);
+      
+      // Set form category to the new category
+      const newCategoryName = newCategory.trim();
+      setForm((f) => ({ ...f, category: newCategoryName }));
+      
+      // Close input and reset
+      setShowOtherCategoryInput(false);
+      setNewCategory("");
+      
+      setMessage({ type: 'success', text: `Category "${newCategoryName}" added successfully! It's now available in filters.` });
+      setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+    } catch (err) {
+      console.error('Error saving category:', err);
+      console.error('Error response:', err.response);
+      
+      // Better error handling
+      let errorMsg = 'Failed to save category';
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        errorMsg = 'Authentication failed. Please logout and login again.';
+      } else if (err.response?.status === 409) {
+        errorMsg = 'This category already exists in the database';
+      } else if (err.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      
+      setMessage({ type: 'error', text: errorMsg });
+      setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+    }
   };
 
   const handleSubmit = async (e) => {

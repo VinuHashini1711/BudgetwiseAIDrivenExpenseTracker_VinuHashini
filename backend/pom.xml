@@ -95,6 +95,13 @@
             <version>5.5.13.3</version>
         </dependency>
 
+        <!-- PDF Text Extraction -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>2.0.29</version>
+        </dependency>
+
         <!-- CSV Export Dependencies -->
         <dependency>
             <groupId>com.opencsv</groupId>
