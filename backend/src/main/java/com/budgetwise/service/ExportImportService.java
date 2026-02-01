@@ -212,12 +212,16 @@ public class ExportImportService {
         
         BigDecimal totalIncome = BigDecimal.ZERO;
         BigDecimal totalExpense = BigDecimal.ZERO;
+        String currencySymbol = "$";
         
         for (Transaction t : transactions) {
             if ("INCOME".equalsIgnoreCase(t.getType())) {
                 totalIncome = totalIncome.add(t.getAmount());
             } else {
                 totalExpense = totalExpense.add(t.getAmount());
+            }
+            if (t.getCurrency() != null && !t.getCurrency().isEmpty()) {
+                currencySymbol = getCurrencySymbol(t.getCurrency());
             }
         }
         
@@ -233,14 +237,14 @@ public class ExportImportService {
         summaryTable.setSpacingAfter(20);
         
         // Income Card
-        addSummaryCard(summaryTable, "Total Income", "$" + formatAmount(totalIncome), SECONDARY_COLOR);
+        addSummaryCard(summaryTable, "Total Income", currencySymbol + formatAmount(totalIncome), SECONDARY_COLOR);
         
         // Expense Card
-        addSummaryCard(summaryTable, "Total Expenses", "$" + formatAmount(totalExpense), DANGER_COLOR);
+        addSummaryCard(summaryTable, "Total Expenses", currencySymbol + formatAmount(totalExpense), DANGER_COLOR);
         
         // Net Balance Card
         BaseColor balanceColor = netBalance.compareTo(BigDecimal.ZERO) >= 0 ? SECONDARY_COLOR : DANGER_COLOR;
-        addSummaryCard(summaryTable, "Net Balance", "$" + formatAmount(netBalance), balanceColor);
+        addSummaryCard(summaryTable, "Net Balance", currencySymbol + formatAmount(netBalance), balanceColor);
         
         // Savings Rate Card
         addSummaryCard(summaryTable, "Savings Rate", savingsRate + "%", PRIMARY_COLOR);
@@ -484,6 +488,12 @@ public class ExportImportService {
         
         if (monthlyData.isEmpty()) return;
         
+            // Get currency symbol from transactions
+            String currencySymbol = "$";
+            if (!transactions.isEmpty() && transactions.get(0).getCurrency() != null) {
+                currencySymbol = getCurrencySymbol(transactions.get(0).getCurrency());
+            }
+        
         // Section title
         Paragraph title = new Paragraph("Monthly Income vs Expenses", sectionFont);
         title.setSpacingBefore(15);
@@ -523,7 +533,7 @@ public class ExportImportService {
             addTableCell(table, monthDate.format(DateTimeFormatter.ofPattern("MMM yyyy")), normalFont, rowColor);
             
             // Income
-            PdfPCell incomeCell = new PdfPCell(new Phrase("$" + formatAmount(data[0]),
+            PdfPCell incomeCell = new PdfPCell(new Phrase(currencySymbol + formatAmount(data[0]),
                 new Font(Font.FontFamily.HELVETICA, 10, Font.NORMAL, SECONDARY_COLOR)));
             incomeCell.setBackgroundColor(rowColor);
             incomeCell.setPadding(6);
@@ -531,7 +541,7 @@ public class ExportImportService {
             table.addCell(incomeCell);
             
             // Expenses
-            PdfPCell expenseCell = new PdfPCell(new Phrase("$" + formatAmount(data[1]),
+            PdfPCell expenseCell = new PdfPCell(new Phrase(currencySymbol + formatAmount(data[1]),
                 new Font(Font.FontFamily.HELVETICA, 10, Font.NORMAL, DANGER_COLOR)));
             expenseCell.setBackgroundColor(rowColor);
             expenseCell.setPadding(6);
@@ -541,7 +551,7 @@ public class ExportImportService {
             // Net
             BaseColor netColor = net.compareTo(BigDecimal.ZERO) >= 0 ? SECONDARY_COLOR : DANGER_COLOR;
             String netPrefix = net.compareTo(BigDecimal.ZERO) >= 0 ? "+" : "";
-            PdfPCell netCell = new PdfPCell(new Phrase(netPrefix + "$" + formatAmount(net),
+            PdfPCell netCell = new PdfPCell(new Phrase(netPrefix + currencySymbol + formatAmount(net),
                 new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD, netColor)));
             netCell.setBackgroundColor(rowColor);
             netCell.setPadding(6);
@@ -608,8 +618,9 @@ public class ExportImportService {
             table.addCell(typeCell);
             
             // Amount with sign
+            String txnCurrency = getCurrencySymbol(t.getCurrency());
             String amountStr = ("INCOME".equalsIgnoreCase(t.getType()) ? "+" : "-") + 
-                "$" + formatAmount(t.getAmount());
+                txnCurrency + formatAmount(t.getAmount());
             PdfPCell amountCell = new PdfPCell(new Phrase(amountStr, 
                 new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD,
                     "INCOME".equalsIgnoreCase(t.getType()) ? SECONDARY_COLOR : DANGER_COLOR)));
@@ -646,18 +657,13 @@ public class ExportImportService {
         title.setSpacingAfter(15);
         document.add(title);
         
-        // Calculate spending per category for current month
-        Map<String, BigDecimal> spendingByCategory = new HashMap<>();
-        LocalDate now = LocalDate.now();
-        
-        for (Transaction t : transactions) {
-            if ("EXPENSE".equalsIgnoreCase(t.getType()) && t.getDate() != null) {
-                LocalDate txDate = t.getDate().toLocalDate();
-                if (txDate.getMonth() == now.getMonth() && txDate.getYear() == now.getYear()) {
-                    spendingByCategory.merge(t.getCategory(), t.getAmount(), BigDecimal::add);
-                }
+            // Get currency symbol from transactions
+            String currencySymbol = "$";
+            if (!transactions.isEmpty() && transactions.get(0).getCurrency() != null) {
+                currencySymbol = getCurrencySymbol(transactions.get(0).getCurrency());
             }
-        }
+        
+            // Spending is calculated per budget across all transactions (matches UI behavior)
         
         PdfPTable table = new PdfPTable(5);
         table.setWidthPercentage(100);
@@ -675,7 +681,12 @@ public class ExportImportService {
         
         boolean alternate = false;
         for (Budget b : budgets) {
-            BigDecimal spent = spendingByCategory.getOrDefault(b.getCategory(), BigDecimal.ZERO);
+            BigDecimal spent = transactions.stream()
+                .filter(t -> "EXPENSE".equalsIgnoreCase(t.getType()))
+                .filter(t -> t.getCategory() != null && b.getCategory() != null
+                    && t.getCategory().trim().equalsIgnoreCase(b.getCategory().trim()))
+                .map(Transaction::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal remaining = b.getAmount().subtract(spent);
             double percentUsed = b.getAmount().compareTo(BigDecimal.ZERO) > 0 
                 ? spent.multiply(BigDecimal.valueOf(100)).divide(b.getAmount(), 0, RoundingMode.HALF_UP).doubleValue()
@@ -684,12 +695,12 @@ public class ExportImportService {
             BaseColor rowColor = alternate ? LIGHT_GRAY : BaseColor.WHITE;
             
             addTableCell(table, b.getCategory(), boldFont, rowColor);
-            addTableCell(table, "$" + formatAmount(b.getAmount()), normalFont, rowColor);
-            addTableCell(table, "$" + formatAmount(spent), normalFont, rowColor);
+            addTableCell(table, currencySymbol + formatAmount(b.getAmount()), normalFont, rowColor);
+            addTableCell(table, currencySymbol + formatAmount(spent), normalFont, rowColor);
             
             // Remaining with color
             BaseColor remainingColor = remaining.compareTo(BigDecimal.ZERO) >= 0 ? SECONDARY_COLOR : DANGER_COLOR;
-            PdfPCell remCell = new PdfPCell(new Phrase("$" + formatAmount(remaining), 
+            PdfPCell remCell = new PdfPCell(new Phrase(currencySymbol + formatAmount(remaining),
                 new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD, remainingColor)));
             remCell.setBackgroundColor(rowColor);
             remCell.setPadding(6);
@@ -837,6 +848,60 @@ public class ExportImportService {
     private String formatAmount(BigDecimal amount) {
         if (amount == null) return "0.00";
         return String.format("%,.2f", amount.abs());
+    }
+    
+    private String getCurrencySymbol(String currencyString) {
+        if (currencyString == null || currencyString.isEmpty()) {
+            return "$";
+        }
+        
+        // Handle formats like "₹ INR - Indian Rupee" or "$ USD - US Dollar"
+        // or just the symbol like "₹"
+        
+        // Try to get the first character
+        if (currencyString.length() > 0) {
+            char first = currencyString.charAt(0);
+            // Check if first char is a currency symbol
+            if (isCurrencySymbol(first)) {
+                return String.valueOf(first);
+            }
+        }
+        
+        // Try splitting by space and check first part
+        String[] parts = currencyString.split("\\s+");
+        if (parts.length > 0) {
+            String firstPart = parts[0].trim();
+            if (firstPart.length() > 0 && isCurrencySymbol(firstPart.charAt(0))) {
+                return firstPart;
+            }
+            // Check if it's a 3-letter code like USD, INR, EUR
+            if (firstPart.matches("[A-Z]{3}")) {
+                return getCurrencySymbolFromCode(firstPart);
+            }
+        }
+        
+        return "$";
+    }
+    
+    private boolean isCurrencySymbol(char c) {
+        // Common currency symbols: ₹ $ € £ ¥ ₩ ₪ ₦ ₨ ₱ ₡ ₲ ₴ ¢ ¤
+        return c == '₹' || c == '$' || c == '€' || c == '£' || c == '¥' || c == '₩' || 
+               c == '₪' || c == '₦' || c == '₨' || c == '₱' || c == '₡' || c == '₲' || 
+               c == '₴' || c == '¢' || c == '¤';
+    }
+    
+    private String getCurrencySymbolFromCode(String code) {
+        switch (code.toUpperCase()) {
+            case "INR": return "₹";
+            case "USD": return "$";
+            case "EUR": return "€";
+            case "GBP": return "£";
+            case "JPY": return "¥";
+            case "KRW": return "₩";
+            case "AUD": return "A$";
+            case "CAD": return "C$";
+            default: return "$";
+        }
     }
     
     private String truncate(String text, int maxLength) {
