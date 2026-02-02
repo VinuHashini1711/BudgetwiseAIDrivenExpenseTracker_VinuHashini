@@ -271,6 +271,12 @@ public class ExportImportService {
     private void addExpensePieChart(Document document, PdfWriter writer, List<Transaction> transactions,
             Font sectionFont, Font normalFont, Font smallFont) throws DocumentException {
         
+        // Get currency symbol from transactions
+        String currencySymbol = "$";
+        if (!transactions.isEmpty() && transactions.get(0).getCurrency() != null) {
+            currencySymbol = getCurrencySymbol(transactions.get(0).getCurrency());
+        }
+        
         // Calculate expenses by category
         Map<String, BigDecimal> expensesByCategory = new LinkedHashMap<>();
         BigDecimal totalExpenses = BigDecimal.ZERO;
@@ -352,7 +358,7 @@ public class ExportImportService {
             canvas.beginText();
             canvas.setFontAndSize(bf, 11);
             canvas.setColorFill(BaseColor.DARK_GRAY);
-            String totalText = "$" + formatAmount(totalExpenses);
+            String totalText = currencySymbol + formatAmount(totalExpenses);
             float textWidth = bf.getWidthPoint(totalText, 11);
             canvas.setTextMatrix(centerX - textWidth/2, centerY - 6);
             canvas.showText(totalText);
@@ -395,7 +401,7 @@ public class ExportImportService {
             legendTable.addCell(nameCell);
             
             // Amount
-            PdfPCell amountCell = new PdfPCell(new Phrase("$" + formatAmount(entry.getValue()), normalFont));
+            PdfPCell amountCell = new PdfPCell(new Phrase(currencySymbol + formatAmount(entry.getValue()), normalFont));
             amountCell.setBorder(Rectangle.NO_BORDER);
             amountCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
             amountCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
