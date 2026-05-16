@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 @Slf4j
-@Service
+// @Service
 public class OllamaService {
 
     private final WebClient webClient;
